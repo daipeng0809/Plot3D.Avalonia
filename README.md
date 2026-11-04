@@ -706,15 +706,32 @@ dotnet add package Plot3D.Avalonia --version 1.0.0 --source Plot3DLocal
 
 ### 15.3 发布到 nuget.org
 
+仓库内置了发布流水线 `.github/workflows/publish.yml`，推荐用它发布。
+
+**方式一：GitHub Actions 自动发布（受信任发布，无需保管任何密钥）**
+
+1. 在 nuget.org 的 **Trusted Publishing** 页面创建策略：
+   - Package Owner：你的账号
+   - CI/CD Provider：`GitHub Actions`
+   - Repository Owner / Repository：GitHub 用户名 / 仓库名
+   - Workflow File：`publish.yml`（**只填文件名**，不含 `.github/workflows/` 路径）
+2. 触发发布，二选一：
+   - 推送标签：`git tag v1.0.0` → `git push origin v1.0.0`，版本号自动取自标签
+   - 在 Actions 页面手动运行 `Publish to NuGet`，可通过输入框临时覆盖版本号
+
+流水线内部用 `NuGet/login@v1` 把 GitHub OIDC token 换成有效期 **1 小时**的临时 API Key，仓库和 Secrets 里都不保存长期密钥。
+
+**方式二：本地手动推送**
+
 ```bash
-# 1. 在 https://www.nuget.org 获取 API Key
+# 1. 在 https://www.nuget.org 的 API Keys 页面创建长期密钥
 # 2. 推送
 dotnet nuget push ./artifacts/Plot3D.Avalonia.1.0.0.nupkg \
   --api-key <YOUR_API_KEY> \
   --source https://api.nuget.org/v3/index.json
 ```
 
-发布前建议修改 `Plot3D.Avalonia.csproj` 中的：
+发布前建议确认 `Plot3D.Avalonia.csproj` 中的：
 
 ```xml
 <Authors>你的名字或团队</Authors>
@@ -723,6 +740,8 @@ dotnet nuget push ./artifacts/Plot3D.Avalonia.1.0.0.nupkg \
 <PackageLicenseExpression>MIT</PackageLicenseExpression>
 <Version>1.0.0</Version>
 ```
+
+> 版本号一经发布不可删除或覆盖，只能 unlist。需要修复时必须升版本号重新发布。
 
 ### 15.4 版本号约定
 
