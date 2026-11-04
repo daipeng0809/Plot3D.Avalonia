@@ -683,10 +683,11 @@ dotnet pack src/Plot3D.Avalonia/Plot3D.Avalonia.csproj -c Release -o ./artifacts
 
 ```
 artifacts/
-├── Plot3D.Avalonia.1.0.0.nupkg
-├── Plot3D.Avalonia.1.0.0.snupkg
-└── Plot3D.Avalonia.1.0.0.symbols.nupkg
+├── Plot3D.Avalonia.1.0.0.nupkg    —— 主包
+└── Plot3D.Avalonia.1.0.0.snupkg   —— 符号包（供 nuget.org 符号服务器使用，发布时随主包一并推送）
 ```
+
+`SymbolPackageFormat` 为 `snupkg`，因此只产出 `.snupkg`，不会再额外生成 `.symbols.nupkg`。
 
 包内包含：
 

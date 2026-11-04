@@ -24,7 +24,7 @@
   <!-- ======================= NuGet 包元数据 ======================= -->
   <PropertyGroup>
     <PackageId>Plot3D.Avalonia</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>Plot3D.Avalonia Contributors</Authors>
     <Company>Plot3D.Avalonia</Company>
     <Description>A lightweight, high-performance and AOT friendly 3D plotting control for Avalonia 12. Scientific-style 3D line / scatter charts with orbit camera, grid, ticks, legend and palette colors.</Description>
