@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>Plot3D.Avalonia</RootNamespace>
+    <AssemblyName>Plot3D.Avalonia</AssemblyName>
+
+    <!-- 面向 Avalonia 12，开启编译绑定以兼容 AOT / 裁剪 -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+
+    <!-- 文档与可裁剪性 -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+
+  <!-- ======================= NuGet 包元数据 ======================= -->
+  <PropertyGroup>
+    <PackageId>Plot3D.Avalonia</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Plot3D.Avalonia Contributors</Authors>
+    <Company>Plot3D.Avalonia</Company>
+    <Description>A lightweight, high-performance and AOT friendly 3D plotting control for Avalonia 12. Scientific-style 3D line / scatter charts with orbit camera, grid, ticks, legend and palette colors.</Description>
+    <PackageTags>avalonia;avalonia12;3d;plot;plot3d;chart;scatter;line;graph;visualization;aot</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/plot3d-avalonia/Plot3D.Avalonia</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/plot3d-avalonia/Plot3D.Avalonia</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Condition="Exists('..\..\README.md')" />
+    <None Include="..\..\docs\icon.png" Pack="true" PackagePath="\" Condition="Exists('..\..\docs\icon.png')" />
+  </ItemGroup>
+
+</Project>

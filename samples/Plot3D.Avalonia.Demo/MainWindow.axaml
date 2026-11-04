@@ -1,0 +1,99 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:plot3d="https://plot3d.avalonia.dev"
+        x:Class="Plot3D.Demo.MainWindow"
+        Title="Plot3D.Avalonia 演示 — 三维折线 / 散点"
+        Width="1200" Height="800"
+        MinWidth="900" MinHeight="620"
+        Background="#EEF1F5">
+
+  <Grid ColumnDefinitions="*,318" Margin="14">
+
+    <Border x:Name="PlotCard"
+            Grid.Column="0"
+            CornerRadius="12"
+            ClipToBounds="True"
+            Background="White"
+            BoxShadow="0 8 26 0 #1F000000">
+      <plot3d:Plot3DView x:Name="Plot"
+                         TickCount="6"
+                         ShowLegend="True"
+                         XAxisTitle="X"
+                         YAxisTitle="Y"
+                         ZAxisTitle="Z"
+                         PlotPadding="52,34,52,34" />
+    </Border>
+
+    <Border x:Name="SideCard"
+            Grid.Column="1"
+            Margin="14,0,0,0"
+            CornerRadius="12"
+            Background="White"
+            BoxShadow="0 8 26 0 #1F000000">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="18" Spacing="10">
+
+          <TextBlock Text="显示选项" FontSize="13" FontWeight="SemiBold" />
+          <CheckBox x:Name="GridCheck" Content="背景网格线" IsChecked="True" Click="OnToggle" />
+          <CheckBox x:Name="BoxCheck" Content="坐标框" IsChecked="True" Click="OnToggle" />
+          <CheckBox x:Name="PaneCheck" Content="背面面板" Click="OnToggle" />
+          <CheckBox x:Name="TicksCheck" Content="刻度与标签" IsChecked="True" Click="OnToggle" />
+          <CheckBox x:Name="AxisTitleCheck" Content="轴标题" IsChecked="True" Click="OnToggle" />
+          <CheckBox x:Name="LegendCheck" Content="图例" IsChecked="True" Click="OnToggle" />
+
+          <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
+
+          <TextBlock Text="外观" FontSize="13" FontWeight="SemiBold" />
+          <TextBlock Text="配色主题" FontSize="12" Opacity="0.72" />
+          <ComboBox x:Name="ThemeCombo" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="OnThemeChanged">
+            <ComboBoxItem Content="浅色" />
+            <ComboBoxItem Content="深色" />
+          </ComboBox>
+
+          <TextBlock Text="投影方式" FontSize="12" Opacity="0.72" />
+          <ComboBox x:Name="ProjectionCombo" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="OnProjectionChanged">
+            <ComboBoxItem Content="正交投影" />
+            <ComboBoxItem Content="透视投影" />
+          </ComboBox>
+
+          <TextBlock Text="调色板" FontSize="12" Opacity="0.72" />
+          <ComboBox x:Name="PaletteCombo" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="OnPaletteChanged">
+            <ComboBoxItem Content="Tab10" />
+            <ComboBoxItem Content="经典" />
+            <ComboBoxItem Content="Set1" />
+            <ComboBoxItem Content="Pastel" />
+            <ComboBoxItem Content="Vivid" />
+          </ComboBox>
+
+          <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
+
+          <TextBlock Text="图形类型" FontSize="13" FontWeight="SemiBold" />
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <RadioButton x:Name="LineMode" Content="折线" IsChecked="True" IsCheckedChanged="OnModeChanged" />
+            <RadioButton x:Name="ScatterMode" Content="散点" IsCheckedChanged="OnModeChanged" />
+            <RadioButton x:Name="BothMode" Content="折线+点" IsCheckedChanged="OnModeChanged" />
+          </StackPanel>
+
+          <TextBlock Text="刻度密度" FontSize="12" Opacity="0.72" />
+          <Slider x:Name="TickSlider" Minimum="3" Maximum="12" Value="6"
+                  TickFrequency="1" IsSnapToTickEnabled="True"
+                  ValueChanged="OnTickCountChanged" />
+
+          <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
+
+          <Button Content="随机颜色" HorizontalAlignment="Stretch" Click="OnRandomColors" />
+          <Button Content="重新生成数据" HorizontalAlignment="Stretch" Click="OnRegenerate" />
+          <Button Content="重置视角" HorizontalAlignment="Stretch" Click="OnResetView" />
+
+          <TextBlock Margin="0,8,0,0"
+                     TextWrapping="Wrap"
+                     FontSize="12"
+                     LineHeight="19"
+                     Opacity="0.72"
+                     Text="操作提示：左键拖动旋转，右键或中键拖动平移，滚轮以光标位置为中心缩放，双击重置视角。" />
+
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+  </Grid>
+</Window>
