@@ -30,8 +30,8 @@
     <Description>A lightweight, high-performance and AOT friendly 3D plotting control for Avalonia 12. Scientific-style 3D line / scatter charts with orbit camera, grid, ticks, legend and palette colors.</Description>
     <PackageTags>avalonia;avalonia12;3d;plot;plot3d;chart;scatter;line;graph;visualization;aot</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/plot3d-avalonia/Plot3D.Avalonia</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/plot3d-avalonia/Plot3D.Avalonia</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/daipeng0809/Plot3D.Avalonia</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/daipeng0809/Plot3D.Avalonia</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
