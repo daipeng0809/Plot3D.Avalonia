@@ -1,0 +1,125 @@
+name: Publish to NuGet
+
+# 触发方式：
+#   1) 推送 v* 标签（如 v1.0.0）—— 版本号自动取自标签
+#   2) Actions 页面手动运行 —— 可在输入框覆盖版本号
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '包版本号（留空则使用 csproj 中的 Version）'
+        required: false
+        default: ''
+
+# Trusted Publishing 需要 id-token: write 来签发 GitHub OIDC token
+permissions:
+  contents: read
+  id-token: write
+
+# 避免两次发布交错执行导致同一版本重复推送
+concurrency:
+  group: nuget-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: 打包并发布到 nuget.org
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+        with:
+          # SourceLink / nuspec 的 commit 信息需要完整历史
+          fetch-depth: 0
+
+      - name: 安装 .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 计算版本号
+        id: version
+        shell: pwsh
+        run: |
+          $version = '${{ inputs.version }}'.Trim()
+
+          if ([string]::IsNullOrWhiteSpace($version) -and '${{ github.ref_type }}' -eq 'tag') {
+              $version = '${{ github.ref_name }}' -replace '^v', ''
+          }
+
+          if ([string]::IsNullOrWhiteSpace($version)) {
+              $csproj = Get-Content 'src/Plot3D.Avalonia/Plot3D.Avalonia.csproj' -Raw
+              if ($csproj -match '<Version>([^<]+)</Version>') {
+                  $version = $Matches[1].Trim()
+              }
+          }
+
+          if ([string]::IsNullOrWhiteSpace($version)) {
+              throw '无法确定版本号：既没有标签，也没有 workflow_dispatch 输入，csproj 中也找不到 <Version>。'
+          }
+
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "打包版本 = $version"
+
+      - name: 还原依赖
+        run: dotnet restore src/Plot3D.Avalonia/Plot3D.Avalonia.csproj
+
+      - name: 打包
+        shell: pwsh
+        run: |
+          $arguments = @(
+              'pack', 'src/Plot3D.Avalonia/Plot3D.Avalonia.csproj',
+              '-c', 'Release',
+              '-o', 'artifacts',
+              '--nologo'
+          )
+
+          $version = '${{ steps.version.outputs.value }}'
+          if (-not [string]::IsNullOrWhiteSpace($version)) {
+              $arguments += "-p:Version=$version"
+          }
+
+          dotnet @arguments
+          if ($LASTEXITCODE -ne 0) { throw "dotnet pack 失败（退出码 $LASTEXITCODE）" }
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/*.nupkg
+          if-no-files-found: error
+
+      - name: 获取临时 NuGet API Key（OIDC）
+        uses: NuGet/login@v1
+        id: login
+        with:
+          # nuget.org 的账号名（profile name），不是邮箱
+          user: daipeng0809
+
+      - name: 推送到 nuget.org
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: |
+          $source = 'https://api.nuget.org/v3/index.json'
+
+          $packages = @()
+          $packages += Get-ChildItem artifacts -Filter *.nupkg
+          $packages += Get-ChildItem artifacts -Filter *.snupkg
+
+          if ($packages.Count -eq 0) { throw 'artifacts 目录下没有找到任何 .nupkg / .snupkg' }
+
+          foreach ($package in $packages) {
+              Write-Host "推送 $($package.Name)"
+              dotnet nuget push $package.FullName `
+                  --api-key $env:NUGET_API_KEY `
+                  --source $source `
+                  --skip-duplicate
+
+              if ($LASTEXITCODE -ne 0) { throw "推送 $($package.Name) 失败（退出码 $LASTEXITCODE）" }
+          }
