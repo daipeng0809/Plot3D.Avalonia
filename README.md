@@ -50,10 +50,10 @@
 
 ## 2. 环境要求
 
-- .NET 8.0 或 .NET 9.0（库同时提供 `net8.0` 与 `net9.0` 目标）
+- .NET 8.0 / .NET 9.0 / .NET 10.0（库同时提供 `net8.0`、`net9.0`、`net10.0` 目标）
 - Avalonia **12.1+**
 
-> 控件目标框架与宿主应用无关：`net8.0` 宿主可使用 `net8.0` 目标，`net9.0` 宿主会优先使用 `net9.0` 目标。
+> 控件目标框架与宿主应用无关：`net8.0` 宿主使用 `net8.0` 目标，`net9.0` / `net10.0` 宿主会优先匹配同名目标。
 
 ---
 
@@ -92,7 +92,7 @@ dotnet add package Plot3D.Avalonia --version 1.0.0
 控件库注册了专用 XML 命名空间：
 
 ```xml
-xmlns:plot3d="https://plot3d.avalonia.dev"
+xmlns:plot3d="https://github.com/daipeng0809/Plot3D.Avalonia"
 ```
 
 ### 4.2 XAML + 代码
@@ -102,7 +102,7 @@ xmlns:plot3d="https://plot3d.avalonia.dev"
 ```xml
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:plot3d="https://plot3d.avalonia.dev"
+        xmlns:plot3d="https://github.com/daipeng0809/Plot3D.Avalonia"
         x:Class="MyApp.MainWindow"
         Title="三维绘图" Width="1000" Height="700">
 
@@ -692,6 +692,7 @@ artifacts/
 
 - `lib/net8.0/Plot3D.Avalonia.dll`
 - `lib/net9.0/Plot3D.Avalonia.dll`
+- `lib/net10.0/Plot3D.Avalonia.dll`
 - `lib/*/Plot3D.Avalonia.xml`（完整 XML 文档）
 - `README.md`
 - `icon.png`
