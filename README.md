@@ -72,14 +72,14 @@
 ### 3.2 引用 NuGet 包（发布后）
 
 ```bash
-dotnet add package Plot3D.Avalonia --version 1.0.0
+dotnet add package Plot3D.Avalonia --version 1.0.1
 ```
 
 或手工在 csproj 中添加：
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Plot3D.Avalonia" Version="1.0.0" />
+  <PackageReference Include="Plot3D.Avalonia" Version="1.0.1" />
 </ItemGroup>
 ```
 
