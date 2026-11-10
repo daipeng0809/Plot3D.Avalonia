@@ -1,12 +1,12 @@
 # Plot3D.Avalonia
 
-[简体中文](README.md) | **English**
+[简体中文](https://github.com/daipeng0809/Plot3D.Avalonia/blob/master/README.md) | **English**
 
 A lightweight 3D plotting control library for **Avalonia 12**, offering scientific-style 3D line and scatter charts with interactions and visuals inspired by mainstream scientific software (such as MATLAB® `plot3` / `scatter3`).
 
 The control is drawn entirely with the Avalonia drawing APIs. It does not depend on SkiaSharp, does not use reflection and does not use runtime XAML, so it is safe for **NativeAOT / trimming** builds.
 
-![Light theme](docs/screenshot-light.png)
+![Light theme](https://raw.githubusercontent.com/daipeng0809/Plot3D.Avalonia/master/docs/screenshot-light.png)
 
 ---
 
@@ -49,7 +49,7 @@ The control is drawn entirely with the Avalonia drawing APIs. It does not depend
 | Themes | Built-in light and dark themes; every color can be overridden |
 | Engineering | Scene caching, batched geometry, text-layout caching, no reflection, AOT / trimming safe |
 
-![Dark theme](docs/screenshot-dark.png)
+![Dark theme](https://raw.githubusercontent.com/daipeng0809/Plot3D.Avalonia/master/docs/screenshot-dark.png)
 
 ---
 
@@ -77,14 +77,14 @@ Add `src/Plot3D.Avalonia/Plot3D.Avalonia.csproj` to your solution and reference 
 ### 3.2 NuGet package
 
 ```bash
-dotnet add package Plot3D.Avalonia --version 1.1.0
+dotnet add package Plot3D.Avalonia --version 1.1.1
 ```
 
 Or manually:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Plot3D.Avalonia" Version="1.1.0" />
+  <PackageReference Include="Plot3D.Avalonia" Version="1.1.1" />
 </ItemGroup>
 ```
 
@@ -261,7 +261,7 @@ scatter.SetPoints(points);
 
 The default `MarkerSize` for scatter series is `6`. All markers are merged into a single geometry and filled once, so tens of thousands of points stay fast.
 
-![Scatter mode](docs/screenshot-scatter.png)
+![Scatter mode](https://raw.githubusercontent.com/daipeng0809/Plot3D.Avalonia/master/docs/screenshot-scatter.png)
 
 ### 5.3 Combining series
 
@@ -998,8 +998,8 @@ Output:
 
 ```
 artifacts/
-├── Plot3D.Avalonia.1.1.0.nupkg    -- main package
-└── Plot3D.Avalonia.1.1.0.snupkg   -- symbol package (pushed together with the main package)
+├── Plot3D.Avalonia.1.1.1.nupkg    -- main package
+└── Plot3D.Avalonia.1.1.1.snupkg   -- symbol package (pushed together with the main package)
 ```
 
 `SymbolPackageFormat` is `snupkg`, so no `.symbols.nupkg` is produced.
@@ -1018,7 +1018,7 @@ The package contains:
 
 ```bash
 dotnet nuget add source ./artifacts --name Plot3DLocal
-dotnet add package Plot3D.Avalonia --version 1.1.0 --source Plot3DLocal
+dotnet add package Plot3D.Avalonia --version 1.1.1 --source Plot3DLocal
 ```
 
 ### 17.3 Publishing to nuget.org
@@ -1033,7 +1033,7 @@ The repository ships `.github/workflows/publish.yml`.
    - Repository Owner / Repository: your GitHub user / repository
    - Workflow File: `publish.yml` (**file name only**, without `.github/workflows/`)
 2. Trigger a release:
-   - Push a tag: `git tag v1.1.0` → `git push origin v1.1.0` (the version comes from the tag)
+   - Push a tag: `git tag v1.1.1` → `git push origin v1.1.1` (the version comes from the tag)
    - Or run `Publish to NuGet` manually and optionally override the version
 
 The workflow exchanges a GitHub OIDC token for a temporary NuGet API key (valid for **1 hour**), so no long-lived secrets are stored.
@@ -1043,7 +1043,7 @@ The workflow exchanges a GitHub OIDC token for a temporary NuGet API key (valid 
 ```bash
 # 1. Create an API key at https://www.nuget.org (API Keys page)
 # 2. Push
-dotnet nuget push ./artifacts/Plot3D.Avalonia.1.1.0.nupkg \
+dotnet nuget push ./artifacts/Plot3D.Avalonia.1.1.1.nupkg \
   --api-key <YOUR_API_KEY> \
   --source https://api.nuget.org/v3/index.json
 ```
@@ -1055,7 +1055,7 @@ Before publishing, verify:
 <PackageProjectUrl>project home</PackageProjectUrl>
 <RepositoryUrl>git repository</RepositoryUrl>
 <PackageLicenseExpression>MIT</PackageLicenseExpression>
-<Version>1.1.0</Version>
+<Version>1.1.1</Version>
 ```
 
 > Published versions cannot be deleted or overwritten, only unlisted. Fixes require a new version.
@@ -1314,6 +1314,10 @@ downsample in your business layer or enable `IsPointHoverEnabled` / `IsCrosshair
 ---
 
 ## 20. Version and license
+
+### 1.1.1
+
+- Fixed the language switch links and screenshots on the NuGet package page by replacing relative paths with absolute GitHub / raw URLs (no code changes).
 
 ### 1.1.0
 
