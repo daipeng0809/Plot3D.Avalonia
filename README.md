@@ -6,7 +6,7 @@
 
 控件完全基于 Avalonia 绘图 API 自绘，不依赖 SkiaSharp、不依赖反射、不使用运行时 XAML，可直接用于 **NativeAOT / 裁剪（Trimming）** 发布。
 
-![浅色主题](https://raw.githubusercontent.com/daipeng0809/Plot3D.Avalonia/master/docs/screenshot-light.png)
+![浅色主题](https://cdn.jsdelivr.net/gh/daipeng0809/Plot3D.Avalonia@master/docs/screenshot-light.png)
 
 ---
 
@@ -49,7 +49,7 @@
 | 主题 | 内置浅色 / 深色主题，所有颜色均可单独覆盖 |
 | 工程 | 场景缓存、批量几何绘制、文字布局缓存、无需反射，AOT / 裁剪安全 |
 
-![深色主题](https://raw.githubusercontent.com/daipeng0809/Plot3D.Avalonia/master/docs/screenshot-dark.png)
+![深色主题](https://cdn.jsdelivr.net/gh/daipeng0809/Plot3D.Avalonia@master/docs/screenshot-dark.png)
 
 ---
 
@@ -77,14 +77,14 @@
 ### 3.2 引用 NuGet 包（发布后）
 
 ```bash
-dotnet add package Plot3D.Avalonia --version 1.1.1
+dotnet add package Plot3D.Avalonia --version 1.1.2
 ```
 
 或手工在 csproj 中添加：
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Plot3D.Avalonia" Version="1.1.1" />
+  <PackageReference Include="Plot3D.Avalonia" Version="1.1.2" />
 </ItemGroup>
 ```
 
@@ -273,7 +273,7 @@ scatter.SetPoints(points);
 
 散点默认 `MarkerSize = 6`。所有点会合并进一个几何体一次性填充，因此数万点也能保持流畅。
 
-![散点模式](https://raw.githubusercontent.com/daipeng0809/Plot3D.Avalonia/master/docs/screenshot-scatter.png)
+![散点模式](https://cdn.jsdelivr.net/gh/daipeng0809/Plot3D.Avalonia@master/docs/screenshot-scatter.png)
 
 ### 5.3 多系列组合
 
@@ -1010,8 +1010,8 @@ dotnet pack src/Plot3D.Avalonia/Plot3D.Avalonia.csproj -c Release -o ./artifacts
 
 ```
 artifacts/
-├── Plot3D.Avalonia.1.1.1.nupkg    —— 主包
-└── Plot3D.Avalonia.1.1.1.snupkg   —— 符号包（供 nuget.org 符号服务器使用，发布时随主包一并推送）
+├── Plot3D.Avalonia.1.1.2.nupkg    —— 主包
+└── Plot3D.Avalonia.1.1.2.snupkg   —— 符号包（供 nuget.org 符号服务器使用，发布时随主包一并推送）
 ```
 
 `SymbolPackageFormat` 为 `snupkg`，因此只产出 `.snupkg`，不会再额外生成 `.symbols.nupkg`。
@@ -1030,7 +1030,7 @@ artifacts/
 
 ```bash
 dotnet nuget add source ./artifacts --name Plot3DLocal
-dotnet add package Plot3D.Avalonia --version 1.1.1 --source Plot3DLocal
+dotnet add package Plot3D.Avalonia --version 1.1.2 --source Plot3DLocal
 ```
 
 ### 17.3 发布到 nuget.org
@@ -1045,7 +1045,7 @@ dotnet add package Plot3D.Avalonia --version 1.1.1 --source Plot3DLocal
    - Repository Owner / Repository：GitHub 用户名 / 仓库名
    - Workflow File：`publish.yml`（**只填文件名**，不含 `.github/workflows/` 路径）
 2. 触发发布，二选一：
-   - 推送标签：`git tag v1.1.1` → `git push origin v1.1.1`，版本号自动取自标签
+   - 推送标签：`git tag v1.1.2` → `git push origin v1.1.2`，版本号自动取自标签
    - 在 Actions 页面手动运行 `Publish to NuGet`，可通过输入框临时覆盖版本号
 
 流水线内部用 `NuGet/login@v1` 把 GitHub OIDC token 换成有效期 **1 小时**的临时 API Key，仓库和 Secrets 里都不保存长期密钥。
@@ -1055,7 +1055,7 @@ dotnet add package Plot3D.Avalonia --version 1.1.1 --source Plot3DLocal
 ```bash
 # 1. 在 https://www.nuget.org 的 API Keys 页面创建长期密钥
 # 2. 推送
-dotnet nuget push ./artifacts/Plot3D.Avalonia.1.1.1.nupkg \
+dotnet nuget push ./artifacts/Plot3D.Avalonia.1.1.2.nupkg \
   --api-key <YOUR_API_KEY> \
   --source https://api.nuget.org/v3/index.json
 ```
@@ -1067,7 +1067,7 @@ dotnet nuget push ./artifacts/Plot3D.Avalonia.1.1.1.nupkg \
 <PackageProjectUrl>项目主页</PackageProjectUrl>
 <RepositoryUrl>Git 仓库地址</RepositoryUrl>
 <PackageLicenseExpression>MIT</PackageLicenseExpression>
-<Version>1.1.1</Version>
+<Version>1.1.2</Version>
 ```
 
 > 版本号一经发布不可删除或覆盖，只能 unlist。需要修复时必须升版本号重新发布。
@@ -1328,9 +1328,13 @@ bitmap.Save("chart.png");
 
 ## 20. 版本与许可
 
+### 1.1.2
+
+- 将 README 截图改用 jsDelivr CDN（`cdn.jsdelivr.net`），避免部分网络无法访问 GitHub raw 导致图片不显示（无代码变更）。
+
 ### 1.1.1
 
-- 修复 NuGet 包页面 README 的中英文切换链接与截图无法显示的问题：相对路径改为绝对 GitHub / raw 链接（无代码变更）。
+- 修复 NuGet 包页面 README 的中英文切换链接与截图无法显示的问题：相对路径改为绝对 GitHub 链接（无代码变更）。
 
 ### 1.1.0
 
