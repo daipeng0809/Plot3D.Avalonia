@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Plot3D.Avalonia.Modeling;
 
 namespace Plot3D.Avalonia.Rendering;
@@ -38,6 +39,40 @@ internal static class MarkerRenderer
         {
             context.DrawingContext.DrawGeometry(context.CreateBrush(), null, geometry);
         }
+    }
+
+    /// <summary>
+    /// 绘制单个标记点，可指定独立颜色与描边（用于“最新点高亮”“悬停高亮”“选中高亮”等强调效果）。
+    /// </summary>
+    public static void DrawSingle(
+        SeriesRenderContext context,
+        in Point3D point,
+        double size,
+        MarkerShape shape,
+        Color color,
+        double strokeThickness = 0)
+    {
+        if (!(size > 0) || !double.IsFinite(size))
+        {
+            return;
+        }
+
+        if (!context.Projection.TryProject(point.X, point.Y, point.Z, out var x, out var y))
+        {
+            return;
+        }
+
+        var geometry = new StreamGeometry();
+        using (var g = geometry.Open())
+        {
+            AddMarker(g, x, y, size, shape);
+        }
+
+        Pen? pen = strokeThickness > 0
+            ? new Pen(new ImmutableSolidColorBrush(Color.FromArgb(220, 255, 255, 255)), strokeThickness)
+            : null;
+
+        context.DrawingContext.DrawGeometry(context.CreateBrush(color), pen, geometry);
     }
 
     private static void AddMarker(StreamGeometryContext g, double cx, double cy, double size, MarkerShape shape)

@@ -104,6 +104,10 @@ internal static class PlotSceneBuilder
         double zMinOverride,
         double zMaxOverride,
         int tickCount,
+        AxisValueFormat xFormat,
+        AxisValueFormat yFormat,
+        AxisValueFormat zFormat,
+        bool axisTimeMilliseconds,
         double azimuth,
         double elevation,
         double zoom,
@@ -115,13 +119,13 @@ internal static class PlotSceneBuilder
         var (dataMinY, dataMaxY) = dataBounds.IsEmpty ? (0.0, 1.0) : (dataBounds.MinY, dataBounds.MaxY);
         var (dataMinZ, dataMaxZ) = dataBounds.IsEmpty ? (0.0, 1.0) : (dataBounds.MinZ, dataBounds.MaxZ);
 
-        var (xLo, xHi, xFixedLo, xFixedHi) = ResolveAxis(dataMinX, dataMaxX, xMinOverride, xMaxOverride);
-        var (yLo, yHi, yFixedLo, yFixedHi) = ResolveAxis(dataMinY, dataMaxY, yMinOverride, yMaxOverride);
-        var (zLo, zHi, zFixedLo, zFixedHi) = ResolveAxis(dataMinZ, dataMaxZ, zMinOverride, zMaxOverride);
+        var (xLo, xHi, xFixedLo, xFixedHi) = ResolveAxis(dataMinX, dataMaxX, xMinOverride, xMaxOverride, GetMinimumSpan(xFormat));
+        var (yLo, yHi, yFixedLo, yFixedHi) = ResolveAxis(dataMinY, dataMaxY, yMinOverride, yMaxOverride, GetMinimumSpan(yFormat));
+        var (zLo, zHi, zFixedLo, zFixedHi) = ResolveAxis(dataMinZ, dataMaxZ, zMinOverride, zMaxOverride, GetMinimumSpan(zFormat));
 
-        var xTicks = AxisTicks.Create(xLo, xHi, tickCount, xFixedLo, xFixedHi);
-        var yTicks = AxisTicks.Create(yLo, yHi, tickCount, yFixedLo, yFixedHi);
-        var zTicks = AxisTicks.Create(zLo, zHi, tickCount, zFixedLo, zFixedHi);
+        var xTicks = AxisTicks.Create(xLo, xHi, tickCount, xFixedLo, xFixedHi, xFormat, axisTimeMilliseconds);
+        var yTicks = AxisTicks.Create(yLo, yHi, tickCount, yFixedLo, yFixedHi, yFormat, axisTimeMilliseconds);
+        var zTicks = AxisTicks.Create(zLo, zHi, tickCount, zFixedLo, zFixedHi, zFormat, axisTimeMilliseconds);
 
         var xMin = xTicks.Min;
         var xMax = xTicks.Max;
@@ -221,7 +225,10 @@ internal static class PlotSceneBuilder
         var centerVy = (minVy + maxVy) * 0.5;
 
         var offsetX = padding.Left + availableWidth * 0.5 - scale * centerVx + (double.IsFinite(panX) ? panX : 0);
-        var offsetY = padding.Top + availableHeight * 0.5 + scale * centerVy + (double.IsFinite(panY) ? panY : 0);
+
+        // centerVy 是 measure 投影输出的屏幕 Y 中心（屏幕 Y 与世界 Y 方向相反），
+        // 因此这里必须减去，否则透视投影下包围盒会整体偏移。
+        var offsetY = padding.Top + availableHeight * 0.5 - scale * centerVy + (double.IsFinite(panY) ? panY : 0);
 
         var projection = new PlotProjection(
             rightX, rightY, rightZ,
@@ -264,11 +271,19 @@ internal static class PlotSceneBuilder
         };
     }
 
+    /// <summary>
+    /// 时间格式轴在零跨度（单点 / 所有值相同）时的最小可见跨度：1 天。
+    /// 数值格式返回 0，表示沿用按数值量级扩展的旧行为。
+    /// </summary>
+    private static double GetMinimumSpan(AxisValueFormat format) =>
+        format == AxisValueFormat.Numeric ? 0 : 1.0;
+
     private static (double Min, double Max, bool FixedMin, bool FixedMax) ResolveAxis(
         double dataMin,
         double dataMax,
         double overrideMin,
-        double overrideMax)
+        double overrideMax,
+        double minimumSpan)
     {
         var fixedMin = double.IsFinite(overrideMin);
         var fixedMax = double.IsFinite(overrideMax);
@@ -282,7 +297,7 @@ internal static class PlotSceneBuilder
 
         if (max <= min)
         {
-            var span = Math.Max(Math.Abs(max), 1.0);
+            var span = minimumSpan > 0 ? minimumSpan : Math.Max(Math.Abs(max), 1.0);
             if (fixedMin && fixedMax)
             {
                 max = min + span;

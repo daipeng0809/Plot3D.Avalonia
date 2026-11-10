@@ -12,13 +12,9 @@ namespace Plot3D.Avalonia.Rendering;
 /// </summary>
 internal sealed class FrameRenderer
 {
-    private const double TickLength = 4;
-    private const double TickLabelGap = 3;
-
     private readonly Plot3DView _owner;
-    private readonly Dictionary<string, TextLayout> _textCache = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string Text, double FontSize), TextLayout> _textCache = new();
     private FontFamily _cachedFamily = FontFamily.Default;
-    private double _cachedFontSize = -1;
     private IBrush? _cachedTextBrush;
 
     public FrameRenderer(Plot3DView owner)
@@ -53,6 +49,13 @@ internal sealed class FrameRenderer
     private void DrawPanes(DrawingContext dc, PlotScene scene)
     {
         if (!_owner.ShowPane)
+        {
+            return;
+        }
+
+        // 背景完全透明时，只有在宿主显式设置了 PaneBrush 的情况下才填充墙面，
+        // 避免叠放在其它控件上时出现不透明色块。
+        if (_owner.IsBackgroundTransparent && !_owner.IsSet(Plot3DView.PaneBrushProperty))
         {
             return;
         }
@@ -221,6 +224,11 @@ internal sealed class FrameRenderer
             return;
         }
 
+        var tickLength = SanitizeTickLength(_owner.TickLength);
+        var labelGap = SanitizeGap(_owner.TickLabelGap);
+        var labelFontSize = _owner.ResolveTickLabelFontSize();
+        var labelOffset = _owner.TickLabelOffset;
+
         for (var i = 0; i < ticks.Values.Length; i++)
         {
             var t = Math.Clamp((ticks.Values[i] - ticks.Min) / span, 0, 1);
@@ -230,7 +238,7 @@ internal sealed class FrameRenderer
                 continue;
             }
 
-            var tip = point + edge.Outward * TickLength;
+            var tip = point + edge.Outward * tickLength;
             dc.DrawLine(pen, point, tip);
 
             if (!_owner.ShowTickLabels)
@@ -238,20 +246,26 @@ internal sealed class FrameRenderer
                 continue;
             }
 
-            var layout = GetText(ticks.Labels[i], textBrush);
+            var layout = GetText(ticks.Labels[i], textBrush, labelFontSize);
             if (isVerticalAxis && Math.Abs(layout.Width) < 0.01)
             {
                 continue;
             }
 
-            layout.Draw(dc, ComputeLabelOrigin(tip, edge.Outward, layout));
+            layout.Draw(dc, ComputeLabelOrigin(tip, edge.Outward, layout, labelGap, labelOffset));
         }
     }
 
-    private static Point ComputeLabelOrigin(Point tip, Point outward, TextLayout layout)
+    internal static double SanitizeTickLength(double value) =>
+        double.IsFinite(value) ? Math.Clamp(value, 0, 24) : 4;
+
+    internal static double SanitizeGap(double value) =>
+        double.IsFinite(value) ? Math.Clamp(value, -24, 48) : 3;
+
+    private static Point ComputeLabelOrigin(Point tip, Point outward, TextLayout layout, double gap, Vector offset)
     {
-        var x = tip.X + outward.X * TickLabelGap;
-        var y = tip.Y + outward.Y * TickLabelGap;
+        var x = tip.X + outward.X * gap + offset.X;
+        var y = tip.Y + outward.Y * gap + offset.Y;
 
         // outward 指向图形外侧：负向时把文本整体移到外侧，正向时保持边缘对齐。
         if (outward.X < -0.35)
@@ -298,7 +312,7 @@ internal sealed class FrameRenderer
             {
                 foreach (var label in scene.ZTicks.Labels)
                 {
-                    maxLabelWidth = Math.Max(maxLabelWidth, GetText(label, textBrush).Width);
+                    maxLabelWidth = Math.Max(maxLabelWidth, GetText(label, textBrush, _owner.ResolveTickLabelFontSize()).Width);
                 }
             }
 
@@ -313,13 +327,20 @@ internal sealed class FrameRenderer
         IBrush textBrush,
         double extraDistance)
     {
-        var layout = GetText(title, textBrush);
+        var titleFontSize = _owner.ResolveAxisTitleFontSize();
+        var layout = GetText(title, textBrush, titleFontSize);
         var mid = new Point(
             (edge.ScreenStart.X + edge.ScreenEnd.X) * 0.5,
             (edge.ScreenStart.Y + edge.ScreenEnd.Y) * 0.5);
 
-        var distance = TickLength + TickLabelGap + _owner.FontSize + 14 + extraDistance;
-        var anchor = mid + edge.Outward * distance;
+        var tickLength = SanitizeTickLength(_owner.TickLength);
+        var labelGap = SanitizeGap(_owner.TickLabelGap);
+        var titleGap = SanitizeGap(_owner.AxisTitleGap);
+        var increase = _owner.ResolveTickLabelFontSize() - titleFontSize;
+
+        var distance = tickLength + labelGap + titleFontSize + 14 + titleGap + extraDistance + Math.Max(0, increase);
+        var offset = _owner.AxisTitleOffset;
+        var anchor = mid + edge.Outward * distance + new Vector(offset.X, offset.Y);
         var origin = new Point(anchor.X - layout.Width * 0.5, anchor.Y - layout.Height * 0.5);
         layout.Draw(dc, origin);
     }
@@ -339,7 +360,7 @@ internal sealed class FrameRenderer
 
         for (var i = 0; i < items.Count; i++)
         {
-            layouts[i] = GetText(items[i].Text, textBrush);
+            layouts[i] = GetText(items[i].Text, textBrush, _owner.FontSize);
             contentWidth = Math.Max(contentWidth, layouts[i].Width);
         }
 
@@ -361,28 +382,25 @@ internal sealed class FrameRenderer
         }
     }
 
-    private TextLayout GetText(string text, IBrush brush)
+    private TextLayout GetText(string text, IBrush brush, double fontSize)
     {
         var family = _owner.FontFamily;
-        var fontSize = _owner.FontSize;
 
-        if (!Equals(family, _cachedFamily) ||
-            Math.Abs(fontSize - _cachedFontSize) > 1e-6 ||
-            !ReferenceEquals(brush, _cachedTextBrush))
+        if (!Equals(family, _cachedFamily) || !ReferenceEquals(brush, _cachedTextBrush))
         {
             _textCache.Clear();
             _cachedFamily = family;
-            _cachedFontSize = fontSize;
             _cachedTextBrush = brush;
         }
 
-        if (_textCache.TryGetValue(text, out var cached))
+        var key = (text, fontSize);
+        if (_textCache.TryGetValue(key, out var cached))
         {
             return cached;
         }
 
         var layout = new TextLayout(text, new Typeface(family), fontSize, brush);
-        _textCache[text] = layout;
+        _textCache[key] = layout;
         return layout;
     }
 

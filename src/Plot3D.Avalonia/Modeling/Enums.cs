@@ -67,3 +67,22 @@ public enum PlotTheme
     /// <summary>深色主题。</summary>
     Dark = 1,
 }
+
+/// <summary>
+/// 坐标轴数值的标签格式。时间类格式将轴数值按 OLE Automation 日期
+/// （<see cref="DateTime.ToOADate"/>，单位为“天”）转换为日期 / 时间文本。
+/// </summary>
+public enum AxisValueFormat
+{
+    /// <summary>普通数值（默认）。</summary>
+    Numeric = 0,
+
+    /// <summary>日期，如 <c>2026-10-11</c>。</summary>
+    Date = 1,
+
+    /// <summary>时间，如 <c>13:22:05</c>；开启毫秒后为 <c>13:22:05.123</c>。</summary>
+    Time = 2,
+
+    /// <summary>日期 + 时间，如 <c>2026-10-11 13:22:05</c>。</summary>
+    DateTime = 3,
+}

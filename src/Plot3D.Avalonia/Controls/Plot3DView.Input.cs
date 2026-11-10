@@ -5,7 +5,8 @@ namespace Plot3D.Avalonia.Controls;
 
 /// <summary>
 /// <see cref="Plot3DView"/> 的鼠标 / 触摸交互：
-/// 左键拖动旋转、右键或中键拖动平移、滚轮以光标为中心缩放、双击重置视角。
+/// 左键拖动旋转、右键或中键拖动平移、滚轮以光标为中心缩放、双击重置视角；
+/// 以及悬停高亮、十字准线、左键点选数据点与右键上下文菜单。
 /// </summary>
 public partial class Plot3DView
 {
@@ -16,8 +17,14 @@ public partial class Plot3DView
         Pan,
     }
 
+    /// <summary>按下与松开之间的位移超过该阈值即视为拖动而非点击。</summary>
+    private const double ClickThreshold = 4;
+
     private DragMode _dragMode;
     private Point _lastPointerPosition;
+    private Point _pressPosition;
+    private bool _pressMoved;
+    private MouseButton? _pressedButton;
 
     /// <inheritdoc />
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -26,6 +33,17 @@ public partial class Plot3DView
 
         var point = e.GetCurrentPoint(this);
         var properties = point.Properties;
+
+        _pressPosition = point.Position;
+        _pressMoved = false;
+        _pressedButton = properties.IsLeftButtonPressed
+            ? MouseButton.Left
+            : properties.IsRightButtonPressed
+                ? MouseButton.Right
+                : properties.IsMiddleButtonPressed
+                    ? MouseButton.Middle
+                    : null;
+
         DragMode mode;
 
         if (properties.IsLeftButtonPressed && IsRotationEnabled)
@@ -53,12 +71,22 @@ public partial class Plot3DView
     {
         base.OnPointerMoved(e);
 
+        var position = e.GetCurrentPoint(this).Position;
+        TrackPressMovement(position);
+
         if (_dragMode == DragMode.None)
         {
+            UpdateInteraction(position);
             return;
         }
 
-        var position = e.GetCurrentPoint(this).Position;
+        if (!_pressMoved)
+        {
+            // 未越过点击阈值前保持相机不动，避免单击点选时视角抖动。
+            _lastPointerPosition = position;
+            return;
+        }
+
         var deltaX = position.X - _lastPointerPosition.X;
         var deltaY = position.Y - _lastPointerPosition.Y;
         _lastPointerPosition = position;
@@ -92,21 +120,54 @@ public partial class Plot3DView
     {
         base.OnPointerReleased(e);
 
-        if (_dragMode == DragMode.None)
+        var position = e.GetCurrentPoint(this).Position;
+        TrackPressMovement(position);
+
+        var button = _pressedButton;
+        var isClick = button is not null && !_pressMoved;
+        _pressedButton = null;
+
+        if (_dragMode != DragMode.None)
+        {
+            e.Pointer.Capture(null);
+            EndDrag();
+        }
+
+        if (!isClick)
         {
             return;
         }
 
-        e.Pointer.Capture(null);
-        EndDrag();
-        e.Handled = true;
+        if (button == MouseButton.Left)
+        {
+            HandleLeftClick(position);
+            e.Handled = true;
+        }
+        else if (button == MouseButton.Right)
+        {
+            HandleRightClick(position);
+            e.Handled = true;
+        }
     }
 
     /// <inheritdoc />
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
+        _pressedButton = null;
+        _pressMoved = true;
         EndDrag();
+    }
+
+    /// <inheritdoc />
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+
+        if (_dragMode == DragMode.None)
+        {
+            ClearInteraction();
+        }
     }
 
     /// <inheritdoc />
@@ -145,6 +206,7 @@ public partial class Plot3DView
         _panY = (mouse.Y - centerY) * (1 - ratio) + ratio * _panY;
 
         SetCurrentValue(ZoomProperty, target);
+        UpdateInteraction(mouse);
         e.Handled = true;
     }
 
@@ -162,6 +224,57 @@ public partial class Plot3DView
         e.Handled = true;
     }
 
+    private void TrackPressMovement(Point position)
+    {
+        if (_pressedButton is null || _pressMoved)
+        {
+            return;
+        }
+
+        var deltaX = position.X - _pressPosition.X;
+        var deltaY = position.Y - _pressPosition.Y;
+        if (deltaX * deltaX + deltaY * deltaY > ClickThreshold * ClickThreshold)
+        {
+            _pressMoved = true;
+        }
+    }
+
+    private void HandleLeftClick(Point position)
+    {
+        UpdateInteraction(position);
+
+        if (!IsPointSelectionEnabled)
+        {
+            return;
+        }
+
+        if (TryHitTest(position, SanitizeRadius(SelectionRadius, 12), out var hit))
+        {
+            SelectPointCore(hit);
+        }
+        else
+        {
+            ClearSelection();
+        }
+    }
+
+    private void HandleRightClick(Point position)
+    {
+        if (!IsContextMenuEnabled)
+        {
+            return;
+        }
+
+        UpdateInteraction(position);
+
+        if (IsPointSelectionEnabled && TryHitTest(position, SanitizeRadius(SelectionRadius, 12), out var hit))
+        {
+            SelectPointCore(hit);
+        }
+
+        ShowPlotContextMenu();
+    }
+
     private void EndDrag()
     {
         if (_dragMode == DragMode.None)
@@ -170,7 +283,7 @@ public partial class Plot3DView
         }
 
         _dragMode = DragMode.None;
-        Cursor = Cursor.Default;
+        UpdateHoverCursor(_hoverPoint is not null);
     }
 
     /// <summary>重置视角到默认方位角与仰角（保留缩放与平移）。</summary>

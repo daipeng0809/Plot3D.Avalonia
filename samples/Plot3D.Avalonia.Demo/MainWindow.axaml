@@ -43,6 +43,21 @@
 
           <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
 
+          <TextBlock Text="数据点交互" FontSize="13" FontWeight="SemiBold" />
+          <CheckBox x:Name="HoverCheck" Content="悬停高亮与提示" IsChecked="True" Click="OnToggle" />
+          <CheckBox x:Name="CrosshairCheck" Content="十字准线坐标" IsChecked="True" Click="OnToggle" />
+          <CheckBox x:Name="SelectCheck" Content="点击选中数据点" IsChecked="True" Click="OnToggle" />
+          <CheckBox x:Name="LatestCheck" Content="最新点高亮" IsChecked="True" Click="OnToggle" />
+
+          <TextBlock x:Name="SelectionText"
+                     Text="未选中任何数据点"
+                     FontSize="12"
+                     TextWrapping="Wrap"
+                     Opacity="0.75" />
+          <Button Content="删除选中点" HorizontalAlignment="Stretch" Click="OnDeleteSelected" />
+
+          <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
+
           <TextBlock Text="外观" FontSize="13" FontWeight="SemiBold" />
           <TextBlock Text="配色主题" FontSize="12" Opacity="0.72" />
           <ComboBox x:Name="ThemeCombo" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="OnThemeChanged">
@@ -64,6 +79,20 @@
             <ComboBoxItem Content="Pastel" />
             <ComboBoxItem Content="Vivid" />
           </ComboBox>
+
+          <CheckBox x:Name="TransparentCheck" Content="透明背景" Click="OnToggle" />
+
+          <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
+
+          <TextBlock Text="坐标轴格式" FontSize="13" FontWeight="SemiBold" />
+          <ComboBox x:Name="AxisFormatCombo" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="OnAxisFormatChanged">
+            <ComboBoxItem Content="数值" />
+            <ComboBoxItem Content="日期（2026-10-11）" />
+            <ComboBoxItem Content="时间（13:22:05）" />
+            <ComboBoxItem Content="日期 + 时间（含毫秒）" />
+          </ComboBox>
+
+          <CheckBox x:Name="MsCheck" Content="时间显示到毫秒" Click="OnMillisecondsChanged" />
 
           <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
 
@@ -90,7 +119,7 @@
                      FontSize="12"
                      LineHeight="19"
                      Opacity="0.72"
-                     Text="操作提示：左键拖动旋转，右键或中键拖动平移，滚轮以光标位置为中心缩放，双击重置视角。" />
+                     Text="操作提示：左键拖动旋转，右键拖动平移，滚轮缩放，双击重置视角。悬停数据点可查看提示，左键单击选中点，右键单击打开菜单（可保存 PNG / 删除选中点）。" />
 
         </StackPanel>
       </ScrollViewer>

@@ -1,5 +1,7 @@
 # Plot3D.Avalonia
 
+[简体中文](README.md) | [English](README.en.md)
+
 面向 **Avalonia 12** 的轻量级三维绘图控件库，提供科学计算风格的三维折线图与散点图，交互与视觉参考主流科学计算软件（如 MATLAB® 的 `plot3` / `scatter3`）。
 
 控件完全基于 Avalonia 绘图 API 自绘，不依赖 SkiaSharp、不依赖反射、不使用运行时 XAML，可直接用于 **NativeAOT / 裁剪（Trimming）** 发布。
@@ -17,17 +19,19 @@
 - [5. 数据系列](#5-数据系列)
 - [6. 颜色与调色板](#6-颜色与调色板)
 - [7. 相机、投影与交互](#7-相机投影与交互)
-- [8. 坐标轴、网格与刻度](#8-坐标轴网格与刻度)
-- [9. 主题与字体](#9-主题与字体)
-- [10. 图例](#10-图例)
-- [11. 属性参考](#11-属性参考)
-- [12. 方法参考](#12-方法参考)
-- [13. 性能指南](#13-性能指南)
-- [14. AOT 与裁剪](#14-aot-与裁剪)
-- [15. 打包与发布 NuGet](#15-打包与发布-nuget)
-- [16. 扩展自定义图形](#16-扩展自定义图形)
-- [17. 常见问题](#17-常见问题)
-- [18. 版本与许可](#18-版本与许可)
+- [8. 数据点交互与右键菜单](#8-数据点交互与右键菜单)
+- [9. 坐标轴数值格式与标签排版](#9-坐标轴数值格式与标签排版)
+- [10. 坐标轴、网格与刻度](#10-坐标轴网格与刻度)
+- [11. 主题与字体](#11-主题与字体)
+- [12. 图例](#12-图例)
+- [13. 属性参考](#13-属性参考)
+- [14. 方法参考](#14-方法参考)
+- [15. 性能指南](#15-性能指南)
+- [16. AOT 与裁剪](#16-aot-与裁剪)
+- [17. 打包与发布 NuGet](#17-打包与发布-nuget)
+- [18. 扩展自定义图形](#18-扩展自定义图形)
+- [19. 常见问题](#19-常见问题)
+- [20. 版本与许可](#20-版本与许可)
 
 ---
 
@@ -35,10 +39,11 @@
 
 | 分类 | 能力 |
 | --- | --- |
-| 图形 | 三维折线（`LineSeries3D`）、三维散点（`ScatterSeries3D`），可组合绘制 |
+| 图形 | 三维折线（`LineSeries3D`）、三维散点（`ScatterSeries3D`），可组合绘制，支持最新点高亮 |
 | 相机 | 轨道相机（方位角 / 仰角）、正交投影与透视投影、缩放、平移、双击复位 |
-| 坐标系 | 自动取整的坐标范围、可手动指定范围、自动刻度与标签、轴标题 |
-| 外观 | 背景色、网格开关、坐标框开关、背面面板开关、刻度开关、轴标题开关 |
+| 坐标系 | 自动取整的坐标范围、可手动指定范围、自动刻度与标签、轴标题、数值 / 日期 / 时间格式（支持毫秒） |
+| 点交互 | 悬停高亮 + 自定义提示、十字准线 X/Y/Z 坐标读数、左键点选（事件返回点对象）、右键菜单（保存 PNG / 删除点 / 自定义菜单项） |
+| 外观 | 背景色或完全透明背景、网格开关、坐标框开关、背面面板开关、刻度开关、轴标题开关、刻度与标题的偏移 / 间距 / 字号 |
 | 配色 | 自动调色板 / 固定颜色 / 随机颜色，内置 7 套调色板，支持透明度与线型 |
 | 交互 | 左键拖动旋转、右键/中键拖动平移、滚轮以光标为中心缩放 |
 | 主题 | 内置浅色 / 深色主题，所有颜色均可单独覆盖 |
@@ -72,14 +77,14 @@
 ### 3.2 引用 NuGet 包（发布后）
 
 ```bash
-dotnet add package Plot3D.Avalonia --version 1.0.1
+dotnet add package Plot3D.Avalonia --version 1.1.0
 ```
 
 或手工在 csproj 中添加：
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Plot3D.Avalonia" Version="1.0.1" />
+  <PackageReference Include="Plot3D.Avalonia" Version="1.1.0" />
 </ItemGroup>
 ```
 
@@ -293,6 +298,10 @@ plot.Series.Add(new ScatterSeries3D(p3) { Title = "散点", MarkerSize = 4 });
 | `LineStyle` | `LineStyle` | `Solid` | `Solid` / `Dash` / `Dot` / `DashDot` |
 | `MarkerSize` | `double` | `0`（散点 `6`） | 标记尺寸，0 表示不画点 |
 | `MarkerShape` | `MarkerShape` | `Circle` | 标记形状 |
+| `HighlightLatestPoint` | `bool` | `false` | 是否突出显示最新点（仅 `LineSeries3D` / `ScatterSeries3D`） |
+| `LatestPointColor` | `Color` | `#FF3B30` | 最新点颜色 |
+| `LatestPointSize` | `double` | `0` | 最新点尺寸，0 表示自动 |
+| `LatestPointShape` | `MarkerShape` | `Circle` | 最新点形状 |
 
 ---
 
@@ -392,6 +401,10 @@ plot.ResetView();     // 全部复位
 | 右键 / 中键拖动 | 平移 |
 | 滚轮 | 以光标位置为中心缩放 |
 | 双击 | 重置视角 |
+| 悬停数据点 | 高亮该点并在鼠标旁显示自定义信息（可开关） |
+| 在绘图区移动 | 显示十字准线与鼠标位置的三维坐标读数（可开关） |
+| 左键单击数据点 | 选中该点并通过事件返回点对象（可开关） |
+| 右键单击 | 打开上下文菜单（保存 PNG / 删除选中点 / 自定义项，可开关） |
 
 交互可通过属性关闭：
 
@@ -407,14 +420,267 @@ plot.ZoomSensitivity = 0.15;     // 每格滚轮的指数增量
 
 ---
 
-## 8. 坐标轴、网格与刻度
+## 8. 数据点交互与右键菜单
 
-### 8.1 自动范围
+### 8.1 为数据点附加业务信息（Tag）
+
+`LineSeries3D` / `ScatterSeries3D` 都派生自 `PointSeries3D`，可以在添加点时同步写入任意业务对象（Tag），
+悬停提示、点选事件和右键菜单都能拿到该对象：
+
+```csharp
+var series = new ScatterSeries3D { Title = "温度采样", MarkerSize = 5 };
+
+// 方式一：点与标签成对传入
+var points = new[] { new Point3D(1, 2, 3), new Point3D(2, 4, 5) };
+var tags = new object?[]
+{
+    $"传感器 A · {DateTime.Now:HH:mm:ss} · 23.5 ℃",
+    $"传感器 A · {DateTime.Now:HH:mm:ss} · 24.1 ℃",
+};
+series.SetPoints(points, tags);
+
+// 方式二：单点追加
+series.Add(new Point3D(3, 6, 7), "传感器 A · 25.0 ℃");
+
+// 方式三：直接维护 Tags 列表（与 Points 按索引对应）
+series.Tags.Add("补充说明");
+series.InvalidateData();
+```
+
+| 成员 | 说明 |
+| --- | --- |
+| `Points` | 底层 `List<Point3D>`，与标签按索引一一对应 |
+| `Tags` | 底层 `List<object?>`，缺失项为 null（提示自动回退为坐标文本） |
+| `SetPoints(points, tags)` | 同时替换点与标签 |
+| `Add(point, tag)` | 追加一个带标签的点 |
+| `AddRange(points, tags)` | 批量追加点与标签 |
+| `RemoveAt(index)` | 删除指定点（同时删除标签），成功返回 true |
+| `GetTag(index)` / `SetTag(index, tag)` | 读取 / 写入指定点的标签 |
+
+> Tag 只需重写 `ToString()` 即可控制默认提示内容，无需反射或序列化。
+
+### 8.2 悬停高亮与提示
+
+鼠标移动到数据点附近时，控件会高亮距离最近的可见点，并在鼠标旁显示提示框：
+
+```csharp
+plot.IsPointHoverEnabled = true;      // 总开关
+plot.IsHoverToolTipEnabled = true;    // 是否显示提示框
+plot.HoverRadius = 10;                // 命中半径（像素）
+plot.HoverHighlightColor = Color.Parse("#FF9F0A");
+plot.HoverHighlightSize = 0;          // 0 = 自动（普通标记尺寸 + 4）
+```
+
+提示文本的取值顺序：
+
+1. `HoverTextFormatter` 回调（返回非空字符串时生效）；
+2. 数据点的 `Tag.ToString()`；
+3. 当前轴格式下的 `X / Y / Z` 坐标文本。
+
+```csharp
+plot.HoverTextFormatter = info =>
+    $"{info.Series.Title}\n第 {info.PointIndex} 点\n" +
+    $"X = {plot.FormatXAxisValue(info.Position.X)}\n" +
+    $"Y = {plot.FormatYAxisValue(info.Position.Y)}\n" +
+    $"Z = {plot.FormatZAxisValue(info.Position.Z)}";
+```
+
+提示框外观可单独覆盖：
+
+```csharp
+plot.ToolTipBackground = new SolidColorBrush(Color.FromArgb(235, 32, 32, 40));
+plot.ToolTipBorderBrush = new SolidColorBrush(Color.Parse("#50505A"));
+plot.ToolTipForeground = Brushes.White;
+```
+
+> 命中检测会遍历所有可见点的屏幕投影，数万点规模仍可在鼠标移动时实时完成；极点规模的超大数据建议在业务层降采样。
+
+### 8.3 十字准线与坐标读数
+
+鼠标在绘图区移动时，可以显示过鼠标位置的三维指示线（分别指向三个远墙）以及 X / Y / Z 读数框：
+
+```csharp
+plot.IsCrosshairEnabled = true;       // 总开关
+plot.ShowCrosshairLabels = true;      // 是否显示读数框
+plot.CrosshairBrush = new SolidColorBrush(Color.Parse("#7A7A88"));
+```
+
+读数使用与坐标轴相同的数值 / 日期 / 时间格式（见 [第 9 节](#9-坐标轴数值格式与标签排版)）。
+准线由鼠标位置构造视线射线，与坐标框 AABB 求交：交点始终位于光标射线上，投影与光标重合，
+不会因逐轴裁剪而偏移；射线未命中坐标框或交点偏离视图平面过远时，准线与读数自动隐藏。
+
+### 8.4 点击选中数据点
+
+```csharp
+plot.IsPointSelectionEnabled = true;
+plot.SelectionRadius = 12;                                  // 点击命中半径
+plot.SelectionHighlightColor = Color.Parse("#0A84FF");       // 与悬停高亮颜色区分
+plot.SelectionHighlightSize = 0;                             // 0 = 自动
+
+plot.PointSelected += (_, e) =>
+{
+    var info = e.Point;          // 命中结果
+    var series = info.Series;    // 所在系列
+    var index = info.PointIndex; // 点在系列中的索引
+    var position = info.Position;// 三维坐标
+    var tag = info.Tag;          // 添加点时同步写入的业务对象
+};
+
+plot.PointDeselected += (_, e) =>
+{
+    // 点击空白处、删除点或数据变化导致选中失效时触发
+};
+
+// 代码主动选中 / 取消 / 删除
+plot.SelectPoint(series, 10);
+plot.ClearSelection();
+plot.DeleteSelectedPoint();
+```
+
+点击空白处会清除当前选中；鼠标悬停高亮（琥珀色）与选中高亮（蓝色）使用不同颜色与样式，可同时辨认。
+
+### 8.5 右键菜单
+
+右键单击（未拖动）会打开上下文菜单，内置项：
+
+- **保存图像 (PNG)**：弹出系统保存对话框并导出当前视图；
+- **删除选中点**：仅在存在选中点时出现，删除后触发 `PointDeselected`。
+
+追加自定义菜单项：
+
+```csharp
+var exportCsv = new MenuItem { Header = "导出数据 (CSV)" };
+exportCsv.Click += (_, _) => ExportCsv();
+plot.ContextMenuItems.Add(exportCsv);
+```
+
+按点击位置动态构建菜单（例如右键命中某个点时提供专属操作）：
+
+```csharp
+plot.ContextMenuBuilding += (_, e) =>
+{
+    if (e.HitPoint is { } hit)
+    {
+        var item = new MenuItem { Header = $"定位到 {hit.Series.Title}[{hit.PointIndex}]" };
+        item.Click += (_, _) => SelectAndZoom(hit);
+        e.Items.Add(item);
+    }
+};
+```
+
+右键单击数据点时会先自动选中该点，再打开菜单。
+
+### 8.6 导出 PNG 与透明背景
+
+```csharp
+// 直接写入文件（scale = 2 表示 2 倍高清渲染）
+await plot.SaveImageAsync("chart.png", scale: 2.0);
+
+// 弹出保存对话框
+await plot.SaveImageWithDialogAsync();
+```
+
+> 导出的 PNG 只包含图表本身，不包含悬停 / 选中高亮、十字准线或提示框等交互浮层。
+
+如果需要把控件叠加在其它控件或图片上，可关闭背景填充：
+
+```csharp
+plot.IsBackgroundTransparent = true;
+```
+
+开启后控件不再绘制自己的背景色；`ShowPane = true` 时墙面也只在显式设置 `PaneBrush` 后才会填充。
+
+### 8.7 最新点高亮（识别曲线方向）
+
+```csharp
+var line = new LineSeries3D
+{
+    HighlightLatestPoint = true,          // 用不同样式显示最新的一个有效点
+    LatestPointColor = Color.Parse("#FF3B30"),
+    LatestPointSize = 0,                  // 0 = 自动（普通标记的 1.8 倍，且不小于 7）
+    LatestPointShape = MarkerShape.Circle,
+};
+```
+
+该样式对折线与散点均生效，且会跳过末尾的 NaN 点，便于实时数据场景中快速识别数据增长方向。
+
+---
+
+## 9. 坐标轴数值格式与标签排版
+
+### 9.1 日期 / 时间坐标轴
+
+时间类格式要求轴数值为 **OLE Automation 日期**（`DateTime.ToOADate()`，单位：天）：
+
+```csharp
+var timestamp = new DateTime(2026, 10, 11, 13, 22, 5, 123);
+series.Add(new Point3D(timestamp.ToOADate(), value, depth), $"采样时间 {timestamp:HH:mm:ss.fff}");
+
+plot.XAxisValueFormat = AxisValueFormat.DateTime;  // 2026-10-11 13:22:05.123
+plot.AxisTimeMilliseconds = true;                  // 时间格式输出毫秒
+```
+
+| `AxisValueFormat` | 标签示例 | 说明 |
+| --- | --- | --- |
+| `Numeric` | `1.25` | 默认数值格式 |
+| `Date` | `2026-10-11` | 仅日期 |
+| `Time` | `13:22:05` / `13:22:05.123` | 仅时间，开启毫秒后带 `.fff` |
+| `DateTime` | `2026-10-11 13:22:05` | 日期 + 时间 |
+
+时间轴的刻度会自动选择 1 ms / 5 ms / 1 s / 15 s / 1 min / 1 h / 1 天等“整齐”的步长，
+并在步长小于 1 秒时自动输出毫秒；X / Y / Z 可分别设置格式：
+
+```csharp
+plot.XAxisValueFormat = AxisValueFormat.DateTime;
+plot.YAxisValueFormat = AxisValueFormat.Numeric;
+plot.ZAxisValueFormat = AxisValueFormat.Time;
+```
+
+> 为避免标签重复：`Date` 格式在数据跨度不足一天时会自动附带时间，`Time` 格式在跨度超过一天时会自动附带日期。
+> 周步长对齐到周一，月 / 年步长对齐到月初 / 1 月 1 日（多年步长以 2000 年 1 月为锚点）。
+
+读取格式化文本（悬停提示、自定义标注等场景）：
+
+```csharp
+var text = plot.FormatXAxisValue(46277.556999...);   // 按 X 轴格式输出
+```
+
+> 标签变长时请适当增大 `PlotPadding`，避免文字被裁剪。
+
+### 9.2 刻度与轴标题排版
+
+| 属性 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `TickLength` | `double` | `4` | 刻度线长度（像素） |
+| `TickLabelGap` | `double` | `3` | 刻度文本与刻度线之间的距离，可为负值 |
+| `TickLabelOffset` | `Vector` | `0,0` | 所有刻度文本的整体偏移（屏幕坐标） |
+| `TickLabelFontSize` | `double` | `NaN` | 刻度文本字号；`NaN` 表示使用 `FontSize` |
+| `AxisTitleGap` | `double` | `0` | 轴标题与刻度文本之间的额外间距 |
+| `AxisTitleOffset` | `Vector` | `0,0` | 所有轴标题的整体偏移 |
+| `AxisTitleFontSize` | `double` | `NaN` | 轴标题字号；`NaN` 表示使用 `FontSize` |
+
+```csharp
+plot.TickLength = 6;
+plot.TickLabelGap = 5;
+plot.TickLabelOffset = new Vector(0, 2);
+plot.TickLabelFontSize = 11;
+plot.AxisTitleGap = 6;
+plot.AxisTitleOffset = new Vector(0, -2);
+plot.AxisTitleFontSize = 13;
+```
+
+多行或超长刻度文本仍通过 `PlotPadding` 预留空间。
+
+---
+
+## 10. 坐标轴、网格与刻度
+
+### 10.1 自动范围
 
 默认根据所有可见系列的数据包围盒自动计算范围，并对齐到“好看”的刻度（1 / 2 / 2.5 / 5 × 10ⁿ）。
 空数据时显示 `0..1` 的默认坐标框；所有点重合时会自动扩展出可见范围。
 
-### 8.2 手动指定范围
+### 10.2 手动指定范围
 
 只设置最小值或最大值也可以，未设置的一端继续自动计算：
 
@@ -429,7 +695,7 @@ plot.ZAxisMaximum = 2;
 plot.XAxisMinimum = double.NaN;
 ```
 
-### 8.3 刻度数量
+### 10.3 刻度数量
 
 ```csharp
 plot.TickCount = 6;   // 每个轴期望的刻度数量（含两端），有效范围 2..20
@@ -437,7 +703,7 @@ plot.TickCount = 6;   // 每个轴期望的刻度数量（含两端），有效�
 
 刻度文本会根据步长自动选择小数位，极大 / 极小数值自动切换为科学计数法。
 
-### 8.4 显示开关
+### 10.4 显示开关
 
 ```csharp
 plot.ShowGrid = true;         // 背景网格线
@@ -452,7 +718,7 @@ plot.YAxisTitle = "Y (m)";
 plot.ZAxisTitle = "Z (m)";
 ```
 
-### 8.5 留白
+### 10.5 留白
 
 刻度标签与轴标题绘制在坐标框外侧，通过 `PlotPadding` 预留空间：
 
@@ -464,9 +730,9 @@ plot.PlotPadding = new Thickness(56, 40, 56, 40); // 左、上、右、下
 
 ---
 
-## 9. 主题与字体
+## 11. 主题与字体
 
-### 9.1 内置主题
+### 11.1 内置主题
 
 ```csharp
 plot.ColorTheme = PlotTheme.Light;  // 白色背景、深灰文字
@@ -475,7 +741,7 @@ plot.ColorTheme = PlotTheme.Dark;   // 深色背景、浅色文字
 
 主题只影响**未显式设置**的颜色。
 
-### 9.2 单独覆盖颜色
+### 11.2 单独覆盖颜色
 
 ```csharp
 plot.Background = new SolidColorBrush(Color.Parse("#0F172A"));
@@ -485,11 +751,11 @@ plot.GridBrush = new SolidColorBrush(Color.Parse("#334155"));
 plot.PaneBrush = new SolidColorBrush(Color.Parse("#1E293B"));
 plot.LegendBackground = new SolidColorBrush(Color.FromArgb(210, 15, 23, 42));
 
-// 完全透明背景（叠在其他内容上）
-plot.Background = Brushes.Transparent;
+// 完全透明背景（叠在其他内容上，不填充任何底色）
+plot.IsBackgroundTransparent = true;
 ```
 
-### 9.3 字体
+### 11.3 字体
 
 ```csharp
 plot.FontFamily = new FontFamily("avares://MyApp/Assets/Fonts/AlibabaPuHuiTi.ttf#Alibaba PuHuiTi 3.0");
@@ -500,7 +766,7 @@ plot.FontSize = 13;
 
 ---
 
-## 10. 图例
+## 12. 图例
 
 ```csharp
 plot.ShowLegend = true;
@@ -512,9 +778,9 @@ series.Title = "曲线 A";
 
 ---
 
-## 11. 属性参考
+## 13. 属性参考
 
-### 11.1 `Plot3DView`
+### 13.1 `Plot3DView`
 
 #### 数据与配色
 
@@ -569,6 +835,44 @@ series.Title = "曲线 A";
 | `ZoomSensitivity` | `double` | `0.15` | 缩放灵敏度 |
 | `PanX` / `PanY` | `double` | 只读 | 当前平移量（像素） |
 
+#### 数据点交互
+
+| 属性 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `IsPointHoverEnabled` | `bool` | `true` | 是否启用悬停高亮与提示 |
+| `HoverRadius` | `double` | `10` | 悬停命中半径（像素） |
+| `HoverHighlightColor` | `Color` | `#FF9F0A` | 悬停高亮颜色 |
+| `HoverHighlightSize` | `double` | `0` | 悬停高亮尺寸，0 表示自动 |
+| `IsHoverToolTipEnabled` | `bool` | `true` | 是否显示悬停提示框 |
+| `ToolTipBackground` / `ToolTipBorderBrush` / `ToolTipForeground` | `IBrush?` | 主题色 | 提示框配色 |
+| `HoverTextFormatter` | `Func<PlotPointInfo, string?>?` | `null` | 自定义提示文本，返回 null 时回退到 Tag / 坐标 |
+| `HoveredPoint` | `PlotPointInfo?` | 只读 | 当前悬停命中的数据点 |
+| `IsPointSelectionEnabled` | `bool` | `true` | 是否启用点击选中 |
+| `SelectionRadius` | `double` | `12` | 点击命中半径（像素） |
+| `SelectionHighlightColor` | `Color` | `#0A84FF` | 选中高亮颜色 |
+| `SelectionHighlightSize` | `double` | `0` | 选中高亮尺寸，0 表示自动 |
+| `SelectedPoint` | `PlotPointInfo?` | 只读 | 当前选中的数据点 |
+| `IsCrosshairEnabled` | `bool` | `true` | 是否显示十字准线 |
+| `ShowCrosshairLabels` | `bool` | `true` | 是否显示十字准线的坐标读数框 |
+| `CrosshairBrush` | `IBrush?` | 主题坐标轴色 | 十字准线颜色 |
+| `IsContextMenuEnabled` | `bool` | `true` | 是否启用右键菜单 |
+| `ContextMenuItems` | `AvaloniaList<Control>` | 空集合 | 追加的自定义右键菜单项 |
+
+#### 坐标轴格式与排版
+
+| 属性 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `XAxisValueFormat` / `YAxisValueFormat` / `ZAxisValueFormat` | `AxisValueFormat` | `Numeric` | 数值 / 日期 / 时间 / 日期 + 时间 |
+| `AxisTimeMilliseconds` | `bool` | `false` | 时间格式是否输出毫秒 |
+| `TickLength` | `double` | `4` | 刻度线长度（像素） |
+| `TickLabelGap` | `double` | `3` | 刻度文本距刻度线的距离（像素） |
+| `TickLabelOffset` | `Vector` | `0,0` | 刻度文本整体偏移 |
+| `TickLabelFontSize` | `double` | `NaN` | 刻度文本字号，`NaN` 表示使用 `FontSize` |
+| `AxisTitleGap` | `double` | `0` | 轴标题额外间距（像素） |
+| `AxisTitleOffset` | `Vector` | `0,0` | 轴标题整体偏移 |
+| `AxisTitleFontSize` | `double` | `NaN` | 轴标题字号，`NaN` 表示使用 `FontSize` |
+| `IsBackgroundTransparent` | `bool` | `false` | 是否使用完全透明背景 |
+
 #### 字体
 
 | 属性 | 类型 | 默认值 |
@@ -578,9 +882,9 @@ series.Title = "曲线 A";
 
 ---
 
-## 12. 方法参考
+## 14. 方法参考
 
-### 12.1 `Plot3DView`
+### 14.1 `Plot3DView`
 
 | 方法 | 说明 |
 | --- | --- |
@@ -588,26 +892,47 @@ series.Title = "曲线 A";
 | `ResetCamera()` | 只复位方位角与仰角 |
 | `ResetZoom()` | 只复位缩放与平移 |
 | `InvalidatePlot()` | 强制重新计算自动范围并重绘（直接修改 `Points` 后调用） |
+| `TryHitTest(position, radius, out info)` | 命中测试，返回半径内最近的数据点 |
+| `SelectPoint(series, index)` | 按系列与索引选中数据点 |
+| `ClearSelection()` | 清除选中 |
+| `DeleteSelectedPoint()` | 删除选中的点 |
+| `SaveImageAsync(path, scale)` | 把当前视图渲染为 PNG 写入文件 |
+| `SaveImageWithDialogAsync()` | 弹出系统保存对话框并导出 PNG |
+| `FormatXAxisValue` / `FormatYAxisValue` / `FormatZAxisValue` | 按对应轴的数值格式输出文本 |
 
-### 12.2 `LineSeries3D` / `ScatterSeries3D`
+与数据点相关的事件：
 
-| 方法 | 说明 |
+| 事件 | 说明 |
+| --- | --- |
+| `PointSelected` | 点击（或代码）选中数据点，参数包含 `PlotPointInfo` |
+| `PointDeselected` | 选中被取消、删除或数据变化导致失效 |
+| `ContextMenuBuilding` | 右键菜单构建时触发，可按点击位置动态增删菜单项 |
+
+### 14.2 `PointSeries3D`（`LineSeries3D` / `ScatterSeries3D`）
+
+| 方法 / 属性 | 说明 |
 | --- | --- |
 | `SetPoints(IEnumerable<Point3D>)` | 替换全部数据并刷新 |
+| `SetPoints(IEnumerable<Point3D>, IEnumerable<object?>?)` | 同时替换数据与逐点标签 |
 | `SetPoints(ReadOnlySpan<Point3D>)` | 替换全部数据（零分配重载） |
-| `Add(Point3D)` | 追加一个点并刷新 |
-| `AddRange(IEnumerable<Point3D>)` | 追加多个点并刷新 |
+| `Add(Point3D)` / `Add(Point3D, object?)` | 追加一个点（可带标签）并刷新 |
+| `AddRange(IEnumerable<Point3D>)` / `AddRange(points, tags)` | 批量追加点与标签 |
+| `RemoveAt(int)` | 删除指定点（含标签） |
 | `Clear()` | 清空数据 |
+| `GetTag(int)` / `SetTag(int, object?)` | 读取 / 写入逐点标签 |
 | `InvalidateData()` | 直接修改 `Points` 后手动触发刷新 |
+| `TryFindNearestPoint(projection, position, out index, out distance)` | 在屏幕空间查找最近点 |
 | `GetBounds()` | 返回数据包围盒（`BoundingBox3D`） |
+| `HighlightLatestPoint` / `LatestPointColor` / `LatestPointSize` / `LatestPointShape` | 最新点高亮样式 |
+| `Points` / `Tags` / `Count` | 底层点列表、标签列表与点数 |
 
 属性 `Points` 返回底层 `List<Point3D>`，允许直接读写以换取最高性能；批量修改后记得调用 `InvalidateData()`。
 
 ---
 
-## 13. 性能指南
+## 15. 性能指南
 
-### 13.1 已内置的优化
+### 15.1 已内置的优化
 
 - **场景缓存**：只有当相机、尺寸、数据或相关属性变化时才重新计算投影与刻度，纯重绘不会重复计算。
 - **批量几何**：整条折线合并为一个 `StreamGeometry` 一次描绘；所有散点合并为一个几何体一次填充，避免数万次 `DrawLine` / `DrawEllipse` 调用。
@@ -615,9 +940,11 @@ series.Title = "曲线 A";
 - **小标记优化**：尺寸 ≤ 2.5 DIP 的标记使用四边形而非多边形，减少路径节点。
 - **文字缓存**：刻度与标题的 `TextLayout` 只在字体、字号或前景色变化时重建。
 - **画刷缓存**：主题画刷只在颜色属性变化时重建。
+- **命中屏幕坐标缓存**：每个系列按当前投影缓存全部点的屏幕坐标，鼠标移动时只做距离比较；
+  首次投影后不再重复投影全部点（十万点级实测命中查询约 1.5 ms/次）。
 - **无反射 / 无 LINQ 热路径**：渲染循环使用 `Span<T>` 与索引遍历。
 
-### 13.2 使用建议
+### 15.2 使用建议
 
 | 场景 | 建议 |
 | --- | --- |
@@ -627,7 +954,7 @@ series.Title = "曲线 A";
 | 追求极致帧率 | 关闭 `ShowGrid` / `ShowTicks`，减少绘制批次 |
 | 频繁切换数据 | 避免反复 `Series.Clear()`，复用系列对象并调用 `SetPoints` |
 
-### 13.3 测量示例
+### 15.3 测量示例
 
 ```csharp
 var sw = Stopwatch.StartNew();
@@ -639,7 +966,7 @@ Console.WriteLine($"数据更新耗时 {sw.Elapsed.TotalMilliseconds:F2} ms");
 
 ---
 
-## 14. AOT 与裁剪
+## 16. AOT 与裁剪
 
 控件库本身已开启：
 
@@ -671,9 +998,9 @@ dotnet publish -c Release -r win-x64 -p:PublishAot=true
 
 ---
 
-## 15. 打包与发布 NuGet
+## 17. 打包与发布 NuGet
 
-### 15.1 本地打包
+### 17.1 本地打包
 
 ```bash
 dotnet pack src/Plot3D.Avalonia/Plot3D.Avalonia.csproj -c Release -o ./artifacts
@@ -683,8 +1010,8 @@ dotnet pack src/Plot3D.Avalonia/Plot3D.Avalonia.csproj -c Release -o ./artifacts
 
 ```
 artifacts/
-├── Plot3D.Avalonia.1.0.0.nupkg    —— 主包
-└── Plot3D.Avalonia.1.0.0.snupkg   —— 符号包（供 nuget.org 符号服务器使用，发布时随主包一并推送）
+├── Plot3D.Avalonia.1.1.0.nupkg    —— 主包
+└── Plot3D.Avalonia.1.1.0.snupkg   —— 符号包（供 nuget.org 符号服务器使用，发布时随主包一并推送）
 ```
 
 `SymbolPackageFormat` 为 `snupkg`，因此只产出 `.snupkg`，不会再额外生成 `.symbols.nupkg`。
@@ -696,16 +1023,17 @@ artifacts/
 - `lib/net10.0/Plot3D.Avalonia.dll`
 - `lib/*/Plot3D.Avalonia.xml`（完整 XML 文档）
 - `README.md`
+- `README.en.md`
 - `icon.png`
 
-### 15.2 本地测试包
+### 17.2 本地测试包
 
 ```bash
 dotnet nuget add source ./artifacts --name Plot3DLocal
-dotnet add package Plot3D.Avalonia --version 1.0.0 --source Plot3DLocal
+dotnet add package Plot3D.Avalonia --version 1.1.0 --source Plot3DLocal
 ```
 
-### 15.3 发布到 nuget.org
+### 17.3 发布到 nuget.org
 
 仓库内置了发布流水线 `.github/workflows/publish.yml`，推荐用它发布。
 
@@ -717,7 +1045,7 @@ dotnet add package Plot3D.Avalonia --version 1.0.0 --source Plot3DLocal
    - Repository Owner / Repository：GitHub 用户名 / 仓库名
    - Workflow File：`publish.yml`（**只填文件名**，不含 `.github/workflows/` 路径）
 2. 触发发布，二选一：
-   - 推送标签：`git tag v1.0.0` → `git push origin v1.0.0`，版本号自动取自标签
+   - 推送标签：`git tag v1.1.0` → `git push origin v1.1.0`，版本号自动取自标签
    - 在 Actions 页面手动运行 `Publish to NuGet`，可通过输入框临时覆盖版本号
 
 流水线内部用 `NuGet/login@v1` 把 GitHub OIDC token 换成有效期 **1 小时**的临时 API Key，仓库和 Secrets 里都不保存长期密钥。
@@ -727,7 +1055,7 @@ dotnet add package Plot3D.Avalonia --version 1.0.0 --source Plot3DLocal
 ```bash
 # 1. 在 https://www.nuget.org 的 API Keys 页面创建长期密钥
 # 2. 推送
-dotnet nuget push ./artifacts/Plot3D.Avalonia.1.0.0.nupkg \
+dotnet nuget push ./artifacts/Plot3D.Avalonia.1.1.0.nupkg \
   --api-key <YOUR_API_KEY> \
   --source https://api.nuget.org/v3/index.json
 ```
@@ -739,12 +1067,12 @@ dotnet nuget push ./artifacts/Plot3D.Avalonia.1.0.0.nupkg \
 <PackageProjectUrl>项目主页</PackageProjectUrl>
 <RepositoryUrl>Git 仓库地址</RepositoryUrl>
 <PackageLicenseExpression>MIT</PackageLicenseExpression>
-<Version>1.0.0</Version>
+<Version>1.1.0</Version>
 ```
 
 > 版本号一经发布不可删除或覆盖，只能 unlist。需要修复时必须升版本号重新发布。
 
-### 15.4 版本号约定
+### 17.4 版本号约定
 
 遵循语义化版本：
 
@@ -754,11 +1082,11 @@ dotnet nuget push ./artifacts/Plot3D.Avalonia.1.0.0.nupkg \
 
 ---
 
-## 16. 扩展自定义图形
+## 18. 扩展自定义图形
 
 内置只有折线与散点，后续可通过继承 `PlotSeries3D` 扩展曲面、柱状、矢量场等图形。
 
-### 16.1 扩展点
+### 18.1 扩展点
 
 ```csharp
 public abstract class PlotSeries3D : AvaloniaObject
@@ -779,14 +1107,14 @@ public abstract class PlotSeries3D : AvaloniaObject
 | 成员 | 说明 |
 | --- | --- |
 | `DrawingContext` | 当前 Avalonia 绘图表面 |
-| `Projection` | 三维到二维投影器（`TryProject` / `Project`） |
+| `Projection` | 三维到二维投影器（`TryProject` / `Project` / `TryUnproject` / `TryIntersectBounds`） |
 | `Color` | 已解析的系列颜色（含取色模式） |
 | `Opacity` | 系列透明度 |
 | `ViewBounds` | 控件绘制区域 |
 | `CreateBrush()` | 用系列颜色创建画刷 |
 | `CreatePen(thickness, style)` | 用系列颜色创建画笔 |
 
-### 16.2 示例：三维柱状系列
+### 18.2 示例：三维柱状系列
 
 ```csharp
 using Avalonia;
@@ -875,7 +1203,7 @@ plot.Series.Add(bars);
 
 > 外部程序集重写 `Render` 时使用 `protected override`（`protected internal` 在外部程序集等价于 `protected`）。
 
-### 16.3 建议
+### 18.3 建议
 
 - 尽量把同类图元合并到一个 `StreamGeometry` 中一次性绘制。
 - 避免在 `Render` 中分配大数组；如需缓存，使用字段并在 `DataChanged` 时失效。
@@ -883,7 +1211,7 @@ plot.Series.Add(bars);
 
 ---
 
-## 17. 常见问题
+## 19. 常见问题
 
 **Q1：为什么坐标轴标签的重叠 / 留白不理想？**
 
@@ -932,7 +1260,14 @@ SeriesB.SetPoints(pointsB);
 
 **Q5：如何导出图片？**
 
-使用 Avalonia 的 `RenderTargetBitmap` 渲染控件：
+控件内置了 PNG 导出：
+
+```csharp
+await plot.SaveImageAsync("chart.png", scale: 2.0);   // 直接保存
+await plot.SaveImageWithDialogAsync();                // 弹出保存对话框
+```
+
+也可以使用 Avalonia 的 `RenderTargetBitmap` 自行渲染：
 
 ```csharp
 using Avalonia;
@@ -974,9 +1309,36 @@ bitmap.Save("chart.png");
 2. `Series` 中至少有一个 `IsVisible = true` 且非空的系列，否则只显示默认 `0..1` 空坐标框。
 3. 背景与前景色没有设置成相同颜色。
 
+**Q11：如何让悬停提示显示业务信息？**
+
+在添加点时同步写入 Tag（见 [8.1](#81-为数据点附加业务信息tag)），或者设置 `HoverTextFormatter` 回调。
+提示内容完全由宿主决定，控件不做反射或序列化。
+
+**Q12：时间轴数值应该传什么？**
+
+传入 `DateTime.ToOADate()` 的结果（单位：天），并把对应轴的 `XAxisValueFormat` / `YAxisValueFormat` / `ZAxisValueFormat`
+设为 `Date`、`Time` 或 `DateTime`。需要毫秒时设置 `AxisTimeMilliseconds = true`（步长小于 1 秒时会自动输出毫秒）。
+
+**Q13：开启悬停后大数据量会卡顿吗？**
+
+命中检测会遍历可见点的屏幕投影，数万点仍可实时响应；若数据量达到数十万级，建议在业务层降采样，
+或仅在需要时开启 `IsPointHoverEnabled` / `IsCrosshairEnabled`。
+
 ---
 
-## 18. 版本与许可
+## 20. 版本与许可
+
+### 1.1.0
+
+- 新增数据点交互：悬停高亮与自定义提示（逐点 Tag）、十字准线 X/Y/Z 坐标读数、左键点选与 `PointSelected` / `PointDeselected` 事件。
+- 新增右键菜单：默认“保存图像 (PNG)”“删除选中点”，支持 `ContextMenuItems` 与 `ContextMenuBuilding` 自定义。
+- 新增 PNG 导出：`SaveImageAsync` / `SaveImageWithDialogAsync`。
+- 新增完全透明背景（`IsBackgroundTransparent`）。
+- 新增坐标轴日期 / 时间格式（`AxisValueFormat`，支持毫秒）与时间友好刻度。
+- 新增刻度 / 轴标题排版参数：`TickLength`、`TickLabelGap`、`TickLabelOffset`、`TickLabelFontSize`、`AxisTitleGap`、`AxisTitleOffset`、`AxisTitleFontSize`。
+- 新增最新点高亮样式：`HighlightLatestPoint` / `LatestPointColor` / `LatestPointSize` / `LatestPointShape`。
+- `LineSeries3D` / `ScatterSeries3D` 提取公共基类 `PointSeries3D`，新增逐点标签与 `RemoveAt` 等 API。
+- 示例程序与文档同步更新，新增英文文档 `README.en.md`。
 
 ### 1.0.0
 
@@ -999,12 +1361,13 @@ Matplotlib 与 ColorBrewer 分别为其各自权利人的项目/作品，本项�
 ```
 3D控件/
 ├── Plot3D.Avalonia.sln
-├── README.md
+├── README.md                   中文文档
+├── README.en.md                英文文档
 ├── docs/                       截图与图标
 ├── src/Plot3D.Avalonia/        控件库（NuGet 包）
-│   ├── Controls/               Plot3DView（属性 / 渲染 / 交互）
-│   ├── Modeling/               Point3D、Series、调色板、枚举
-│   ├── Rendering/              投影、刻度、坐标框绘制、图例
+│   ├── Controls/               Plot3DView（属性 / 渲染 / 交互 / 右键菜单）
+│   ├── Modeling/               Point3D、Series、标签、调色板、枚举
+│   ├── Rendering/              投影、刻度、坐标框、图例、交互叠加层
 │   └── Properties/             XmlnsDefinition
 └── samples/Plot3D.Avalonia.Demo/   演示程序
 ```
@@ -1019,4 +1382,5 @@ dotnet run --project samples/Plot3D.Avalonia.Demo
 
 ```bash
 dotnet run --project samples/Plot3D.Avalonia.Demo -- --dark --perspective --scatter
+dotnet run --project samples/Plot3D.Avalonia.Demo -- --time
 ```

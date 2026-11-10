@@ -24,10 +24,10 @@
   <!-- ======================= NuGet 包元数据 ======================= -->
   <PropertyGroup>
     <PackageId>Plot3D.Avalonia</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <Authors>Plot3D.Avalonia Contributors</Authors>
     <Company>Plot3D.Avalonia</Company>
-    <Description>A lightweight, high-performance and AOT friendly 3D plotting control for Avalonia 12. Scientific-style 3D line / scatter charts with orbit camera, grid, ticks, legend and palette colors.</Description>
+    <Description>A lightweight, high-performance and AOT friendly 3D plotting control for Avalonia 12. Scientific-style 3D line / scatter charts with orbit camera, point hover and selection, crosshair readout, context menu, grid, ticks, date/time axes, legend and palette colors.</Description>
     <PackageTags>avalonia;avalonia12;3d;plot;plot3d;chart;scatter;line;graph;visualization;aot</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/daipeng0809/Plot3D.Avalonia</PackageProjectUrl>
@@ -48,6 +48,7 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" Condition="Exists('..\..\README.md')" />
+    <None Include="..\..\README.en.md" Pack="true" PackagePath="\" Condition="Exists('..\..\README.en.md')" />
     <None Include="..\..\docs\icon.png" Pack="true" PackagePath="\" Condition="Exists('..\..\docs\icon.png')" />
   </ItemGroup>
 

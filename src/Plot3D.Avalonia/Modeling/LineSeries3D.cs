@@ -8,10 +8,8 @@ namespace Plot3D.Avalonia.Modeling;
 /// <summary>
 /// 三维折线 / 曲线系列。支持任意数量的点、NaN 断线、多种线型与可选的顶点标记。
 /// </summary>
-public class LineSeries3D : PlotSeries3D
+public class LineSeries3D : PointSeries3D
 {
-    private readonly List<Point3D> _points = new();
-
     /// <summary>创建一个空的三维折线系列。</summary>
     public LineSeries3D()
     {
@@ -22,101 +20,14 @@ public class LineSeries3D : PlotSeries3D
     {
         if (points is { Length: > 0 })
         {
-            _points.AddRange(points);
+            SetPoints(points);
         }
-    }
-
-    /// <summary>
-    /// 直接访问底层点列表。批量修改后需要调用 <see cref="InvalidateData"/> 通知控件刷新。
-    /// </summary>
-    public List<Point3D> Points => _points;
-
-    /// <summary>当前点数。</summary>
-    public int Count => _points.Count;
-
-    /// <summary>替换全部点数据（自动通知刷新）。</summary>
-    public void SetPoints(IEnumerable<Point3D> points)
-    {
-        ArgumentNullException.ThrowIfNull(points);
-        _points.Clear();
-        if (points is Point3D[] array)
-        {
-            _points.AddRange(array);
-        }
-        else if (points is List<Point3D> list)
-        {
-            _points.AddRange(list);
-        }
-        else
-        {
-            foreach (var point in points)
-            {
-                _points.Add(point);
-            }
-        }
-
-        RaiseDataChanged();
-    }
-
-    /// <summary>替换全部点数据（自动通知刷新）。</summary>
-    public void SetPoints(ReadOnlySpan<Point3D> points)
-    {
-        _points.Clear();
-        foreach (var point in points)
-        {
-            _points.Add(point);
-        }
-
-        RaiseDataChanged();
-    }
-
-    /// <summary>追加一个点（自动通知刷新）。</summary>
-    public void Add(Point3D point)
-    {
-        _points.Add(point);
-        RaiseDataChanged();
-    }
-
-    /// <summary>追加多个点（自动通知刷新）。</summary>
-    public void AddRange(IEnumerable<Point3D> points)
-    {
-        ArgumentNullException.ThrowIfNull(points);
-        _points.AddRange(points);
-        RaiseDataChanged();
-    }
-
-    /// <summary>清空所有点（自动通知刷新）。</summary>
-    public void Clear()
-    {
-        if (_points.Count == 0)
-        {
-            return;
-        }
-
-        _points.Clear();
-        RaiseDataChanged();
-    }
-
-    /// <summary>在直接修改 <see cref="Points"/> 后调用，通知控件重新计算范围并刷新。</summary>
-    public void InvalidateData() => RaiseDataChanged();
-
-    /// <inheritdoc />
-    public override BoundingBox3D GetBounds()
-    {
-        var bounds = BoundingBox3D.Empty;
-        var span = CollectionsMarshal.AsSpan(_points);
-        for (var i = 0; i < span.Length; i++)
-        {
-            bounds = bounds.Union(span[i]);
-        }
-
-        return bounds;
     }
 
     /// <inheritdoc />
     protected internal override void Render(SeriesRenderContext context)
     {
-        var points = CollectionsMarshal.AsSpan(_points);
+        var points = CollectionsMarshal.AsSpan(Points);
         if (points.Length == 0)
         {
             return;
@@ -128,6 +39,7 @@ public class LineSeries3D : PlotSeries3D
         if (points.Length == 1)
         {
             MarkerRenderer.Draw(context, points, Math.Max(markerSize, 5), MarkerShape);
+            RenderLatestPoint(context);
             return;
         }
 
@@ -184,5 +96,7 @@ public class LineSeries3D : PlotSeries3D
         {
             MarkerRenderer.Draw(context, points, markerSize, MarkerShape);
         }
+
+        RenderLatestPoint(context);
     }
 }

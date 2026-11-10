@@ -9,7 +9,8 @@ using Plot3D.Avalonia.Rendering;
 namespace Plot3D.Avalonia.Controls;
 
 /// <summary>
-/// 科学计算风格的轻量三维绘图控件，支持折线 / 散点、轨道相机、网格、刻度、图例与自动配色。
+/// 科学计算风格的轻量三维绘图控件，支持折线 / 散点、轨道相机、网格、刻度、图例与自动配色，
+/// 并提供数据点悬停提示、十字准线坐标读数、点选事件、右键菜单与 PNG 导出等交互能力。
 /// </summary>
 /// <remarks>
 /// 控件完全使用 Avalonia 绘图 API 自绘，不依赖 SkiaSharp 或反射，可安全用于 NativeAOT / 裁剪环境。
@@ -532,7 +533,10 @@ public partial class Plot3DView : Control
         }
 
         var scene = GetScene(size);
-        context.FillRectangle(ResolveBackgroundBrush(), new Rect(size));
+        if (!IsBackgroundTransparent)
+        {
+            context.FillRectangle(ResolveBackgroundBrush(), new Rect(size));
+        }
 
         Renderer.Render(context, scene);
 
@@ -559,6 +563,11 @@ public partial class Plot3DView : Control
         if (ShowLegend)
         {
             DrawLegend(context, scene);
+        }
+
+        if (!_isExporting)
+        {
+            RenderInteractionOverlay(context, scene);
         }
     }
 
@@ -609,6 +618,10 @@ public partial class Plot3DView : Control
             ZAxisMinimum,
             ZAxisMaximum,
             TickCount,
+            XAxisValueFormat,
+            YAxisValueFormat,
+            ZAxisValueFormat,
+            AxisTimeMilliseconds,
             Azimuth,
             Elevation,
             Zoom,
@@ -704,6 +717,7 @@ public partial class Plot3DView : Control
         _paneBrushCache = null;
         _legendBackgroundCache = null;
         _frameRenderer?.ResetCache();
+        _interactionRenderer?.ResetCache();
     }
 
     #endregion
@@ -738,6 +752,10 @@ public partial class Plot3DView : Control
         property == GridBrushProperty ||
         property == PaneBrushProperty ||
         property == LegendBackgroundProperty ||
+        property == ToolTipBackgroundProperty ||
+        property == ToolTipBorderBrushProperty ||
+        property == ToolTipForegroundProperty ||
+        property == CrosshairBrushProperty ||
         property == ColorThemeProperty ||
         property == FontFamilyProperty ||
         property == FontSizeProperty;
@@ -750,6 +768,7 @@ public partial class Plot3DView : Control
         if (change.Property == SeriesProperty)
         {
             AttachCollection(change.OldValue as PlotSeries3DCollection, change.NewValue as PlotSeries3DCollection);
+            ValidateInteractionState(raiseEvent: true);
             InvalidatePlot();
             return;
         }
@@ -757,6 +776,17 @@ public partial class Plot3DView : Control
         if (IsVisualStyleProperty(change.Property))
         {
             InvalidateBrushes();
+        }
+
+        // 关闭交互开关时立即清除对应的临时状态，避免残留高亮 / 准线。
+        if (change.Property == IsPointHoverEnabledProperty)
+        {
+            _hoverPoint = null;
+        }
+
+        if (change.Property == IsCrosshairEnabledProperty)
+        {
+            _crosshairWorld = null;
         }
 
         InvalidateScene();
@@ -788,6 +818,7 @@ public partial class Plot3DView : Control
     private void OnSeriesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         SyncSubscriptions();
+        ValidateInteractionState(raiseEvent: true);
         InvalidatePlot();
     }
 
@@ -834,9 +865,18 @@ public partial class Plot3DView : Control
         series.DataChanged -= OnSeriesDataChanged;
     }
 
-    private void OnSeriesPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e) => InvalidatePlot();
+    private void OnSeriesPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        // IsVisible / 数据相关属性变化后立即校验悬停与选中状态，避免高亮残留在已隐藏的系列上。
+        ValidateInteractionState(raiseEvent: true);
+        InvalidatePlot();
+    }
 
-    private void OnSeriesDataChanged(object? sender, EventArgs e) => InvalidatePlot();
+    private void OnSeriesDataChanged(object? sender, EventArgs e)
+    {
+        ValidateInteractionState(raiseEvent: true);
+        InvalidatePlot();
+    }
 
     #endregion
 }

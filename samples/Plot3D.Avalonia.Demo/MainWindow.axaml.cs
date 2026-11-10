@@ -28,13 +28,21 @@ public partial class MainWindow : Window
     private readonly CheckBox _ticksCheck;
     private readonly CheckBox _axisTitleCheck;
     private readonly CheckBox _legendCheck;
+    private readonly CheckBox _hoverCheck;
+    private readonly CheckBox _crosshairCheck;
+    private readonly CheckBox _selectCheck;
+    private readonly CheckBox _latestCheck;
+    private readonly CheckBox _transparentCheck;
+    private readonly CheckBox _msCheck;
     private readonly ComboBox _themeCombo;
     private readonly ComboBox _projectionCombo;
     private readonly ComboBox _paletteCombo;
+    private readonly ComboBox _axisFormatCombo;
     private readonly RadioButton _lineMode;
     private readonly RadioButton _scatterMode;
     private readonly RadioButton _bothMode;
     private readonly Slider _tickSlider;
+    private readonly TextBlock _selectionText;
 
     private bool _ready;
     private RenderMode _mode = RenderMode.Line;
@@ -53,21 +61,43 @@ public partial class MainWindow : Window
         _ticksCheck = this.FindControl<CheckBox>("TicksCheck")!;
         _axisTitleCheck = this.FindControl<CheckBox>("AxisTitleCheck")!;
         _legendCheck = this.FindControl<CheckBox>("LegendCheck")!;
+        _hoverCheck = this.FindControl<CheckBox>("HoverCheck")!;
+        _crosshairCheck = this.FindControl<CheckBox>("CrosshairCheck")!;
+        _selectCheck = this.FindControl<CheckBox>("SelectCheck")!;
+        _latestCheck = this.FindControl<CheckBox>("LatestCheck")!;
+        _transparentCheck = this.FindControl<CheckBox>("TransparentCheck")!;
+        _msCheck = this.FindControl<CheckBox>("MsCheck")!;
         _themeCombo = this.FindControl<ComboBox>("ThemeCombo")!;
         _projectionCombo = this.FindControl<ComboBox>("ProjectionCombo")!;
         _paletteCombo = this.FindControl<ComboBox>("PaletteCombo")!;
+        _axisFormatCombo = this.FindControl<ComboBox>("AxisFormatCombo")!;
         _lineMode = this.FindControl<RadioButton>("LineMode")!;
         _scatterMode = this.FindControl<RadioButton>("ScatterMode")!;
         _bothMode = this.FindControl<RadioButton>("BothMode")!;
         _tickSlider = this.FindControl<Slider>("TickSlider")!;
+        _selectionText = this.FindControl<TextBlock>("SelectionText")!;
+
+        _plot.PointSelected += OnPointSelected;
+        _plot.PointDeselected += OnPointDeselected;
+
+        AddCustomContextMenuItems();
 
         _ready = true;
         ApplyPalette(0);
+        ApplyInteractionSettings();
         BuildSeries();
         ApplyStartupArguments();
     }
 
-    /// <summary>支持 --dark / --perspective / --scatter 启动参数，便于快速预览不同外观。</summary>
+    /// <summary>演示如何向控件追加自定义右键菜单项。</summary>
+    private void AddCustomContextMenuItems()
+    {
+        var resetItem = new MenuItem { Header = "重置视角（自定义菜单项）" };
+        resetItem.Click += (_, _) => _plot.ResetView();
+        _plot.ContextMenuItems.Add(resetItem);
+    }
+
+    /// <summary>支持 --dark / --perspective / --scatter / --time 启动参数，便于快速预览不同外观。</summary>
     private void ApplyStartupArguments()
     {
         var args = Environment.GetCommandLineArgs();
@@ -85,6 +115,11 @@ public partial class MainWindow : Window
         if (Array.Exists(args, a => string.Equals(a, "--scatter", StringComparison.OrdinalIgnoreCase)))
         {
             _scatterMode.IsChecked = true;
+        }
+
+        if (Array.Exists(args, a => string.Equals(a, "--time", StringComparison.OrdinalIgnoreCase)))
+        {
+            _axisFormatCombo.SelectedIndex = 3;
         }
     }
 
@@ -105,6 +140,51 @@ public partial class MainWindow : Window
 
         _plot.ShowAxisTitles = _axisTitleCheck.IsChecked == true;
         _plot.ShowLegend = _legendCheck.IsChecked == true;
+
+        ApplyInteractionSettings();
+        ApplyTransparentBackground();
+    }
+
+    private void ApplyInteractionSettings()
+    {
+        _plot.IsPointHoverEnabled = _hoverCheck.IsChecked == true;
+        _plot.IsCrosshairEnabled = _crosshairCheck.IsChecked == true;
+        _plot.IsPointSelectionEnabled = _selectCheck.IsChecked == true;
+
+        var highlightLatest = _latestCheck.IsChecked == true;
+        foreach (var series in _plot.Series)
+        {
+            if (series is PointSeries3D points)
+            {
+                points.HighlightLatestPoint = highlightLatest;
+            }
+        }
+    }
+
+    private void ApplyTransparentBackground()
+    {
+        var transparent = _transparentCheck.IsChecked == true;
+        _plot.IsBackgroundTransparent = transparent;
+
+        if (!transparent)
+        {
+            var dark = _themeCombo.SelectedIndex == 1;
+            _plotCard.Background = new SolidColorBrush(dark ? Color.Parse("#1E1E24") : Colors.White);
+            return;
+        }
+
+        // 用一个渐变背景衬托“透明背景”，确认控件确实没有绘制自己的底色。
+        var darkTheme = _themeCombo.SelectedIndex == 1;
+        _plotCard.Background = new LinearGradientBrush
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
+            GradientStops =
+            {
+                new GradientStop(darkTheme ? Color.Parse("#12304F") : Color.Parse("#DDEBFF"), 0),
+                new GradientStop(darkTheme ? Color.Parse("#3A1430") : Color.Parse("#FFE1F1"), 1),
+            },
+        };
     }
 
     private void OnThemeChanged(object? sender, SelectionChangedEventArgs e)
@@ -125,8 +205,8 @@ public partial class MainWindow : Window
         var windowColor = dark ? Color.Parse("#12141A") : Color.Parse("#EEF1F5");
         var cardColor = dark ? Color.Parse("#1E1E24") : Colors.White;
         Background = new SolidColorBrush(windowColor);
-        _plotCard.Background = new SolidColorBrush(cardColor);
         _sideCard.Background = new SolidColorBrush(cardColor);
+        ApplyTransparentBackground();
     }
 
     private void OnProjectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -185,6 +265,48 @@ public partial class MainWindow : Window
         BuildSeries();
     }
 
+    private void OnAxisFormatChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (!_ready)
+        {
+            return;
+        }
+
+        _plot.XAxisValueFormat = _axisFormatCombo.SelectedIndex switch
+        {
+            1 => AxisValueFormat.Date,
+            2 => AxisValueFormat.Time,
+            3 => AxisValueFormat.DateTime,
+            _ => AxisValueFormat.Numeric,
+        };
+
+        _plot.AxisTimeMilliseconds = _msCheck.IsChecked == true;
+        BuildSeries();
+    }
+
+    private void OnMillisecondsChanged(object? sender, RoutedEventArgs e)
+    {
+        if (!_ready)
+        {
+            return;
+        }
+
+        _plot.AxisTimeMilliseconds = _msCheck.IsChecked == true;
+    }
+
+    private void OnPointSelected(object? sender, PlotPointEventArgs e)
+    {
+        var tag = e.Point.Tag?.ToString();
+        _selectionText.Text = string.IsNullOrWhiteSpace(tag)
+            ? $"已选中：{e.Point.Series.Title} 第 {e.Point.PointIndex} 点"
+            : $"已选中：{e.Point.Series.Title} 第 {e.Point.PointIndex} 点\n{tag}";
+    }
+
+    private void OnPointDeselected(object? sender, PlotPointEventArgs e) =>
+        _selectionText.Text = "未选中任何数据点";
+
+    private void OnDeleteSelected(object? sender, RoutedEventArgs e) => _plot.DeleteSelectedPoint();
+
     private void OnTickCountChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (!_ready)
@@ -212,29 +334,38 @@ public partial class MainWindow : Window
     private void BuildSeries()
     {
         _plot.Series.Clear();
+        _selectionText.Text = "未选中任何数据点";
 
-        for (var index = 0; index < 5; index++)
+        var format = _plot.XAxisValueFormat;
+        var timeMode = format != AxisValueFormat.Numeric;
+        var count = timeMode ? 3 : 5;
+
+        _plot.XAxisTitle = timeMode ? "时间" : "X";
+        _plot.PlotPadding = timeMode ? new Thickness(84, 40, 84, 40) : new Thickness(52, 34, 52, 34);
+
+        for (var index = 0; index < count; index++)
         {
-            var points = CreateSpiralPoints(index);
+            var points = timeMode ? CreateTimePoints(index, format) : CreateSpiralPoints(index);
+            var tags = timeMode ? CreateTimeTags(points, index, format) : CreateSpiralTags(points, index);
 
-            PlotSeries3D series = _mode switch
+            PointSeries3D series = _mode switch
             {
                 RenderMode.Scatter => new ScatterSeries3D
                 {
-                    Title = $"散点 {index + 1}",
-                    MarkerSize = 3.5,
+                    Title = timeMode ? $"传感器 {index + 1}" : $"散点 {index + 1}",
+                    MarkerSize = timeMode ? 5 : 3.5,
                     MarkerShape = MarkerShape.Circle,
                 },
                 RenderMode.LineWithMarkers => new LineSeries3D
                 {
-                    Title = $"曲线 {index + 1}",
+                    Title = timeMode ? $"传感器 {index + 1}" : $"曲线 {index + 1}",
                     StrokeThickness = 1.4,
-                    MarkerSize = 3,
+                    MarkerSize = timeMode ? 4 : 3,
                     MarkerShape = MarkerShape.Circle,
                 },
                 _ => new LineSeries3D
                 {
-                    Title = $"曲线 {index + 1}",
+                    Title = timeMode ? $"传感器 {index + 1}" : $"曲线 {index + 1}",
                     StrokeThickness = 1.6,
                 },
             };
@@ -244,16 +375,10 @@ public partial class MainWindow : Window
                 series.ColorMode = SeriesColorMode.Random;
             }
 
-            switch (series)
-            {
-                case LineSeries3D line:
-                    line.SetPoints(points);
-                    break;
-
-                case ScatterSeries3D scatter:
-                    scatter.SetPoints(points);
-                    break;
-            }
+            series.HighlightLatestPoint = _latestCheck.IsChecked == true;
+            series.LatestPointColor = Color.Parse("#FF3B30");
+            series.LatestPointSize = 0;
+            series.SetPoints(points, tags);
 
             _plot.Series.Add(series);
         }
@@ -278,5 +403,65 @@ public partial class MainWindow : Window
         }
 
         return points;
+    }
+
+    private static string[] CreateSpiralTags(Point3D[] points, int index)
+    {
+        var tags = new string[points.Length];
+        for (var i = 0; i < points.Length; i++)
+        {
+            var point = points[i];
+            tags[i] = $"曲线 {index + 1} · 点 #{i}\nX = {point.X:0.###}   Y = {point.Y:0.###}   Z = {point.Z:0.###}";
+        }
+
+        return tags;
+    }
+
+    /// <summary>生成时间轴演示数据：X 为 OADate，Y / Z 为测量值。</summary>
+    private static Point3D[] CreateTimePoints(int index, AxisValueFormat format)
+    {
+        DateTime start = new(2026, 10, 11, 13, 0, 0, DateTimeKind.Unspecified);
+
+        var (count, step) = format switch
+        {
+            AxisValueFormat.Date => (160, TimeSpan.FromMinutes(90)),      // 约 10 天
+            AxisValueFormat.Time => (288, TimeSpan.FromMinutes(5)),       // 24 小时
+            _ => (400, TimeSpan.FromMilliseconds(5)),                     // 2 秒，演示毫秒
+        };
+
+        var points = new Point3D[count];
+        var phase = index * Math.PI * 2.0 / 3.0;
+
+        for (var i = 0; i < count; i++)
+        {
+            var t = i / (double)(count - 1);
+            var timestamp = start + step * i;
+
+            points[i] = new Point3D(
+                timestamp.ToOADate(),
+                1.2 + 0.6 * Math.Sin(t * Math.PI * 6.0 + phase) + index * 0.35,
+                0.4 + t * 1.8 + 0.15 * Math.Cos(t * Math.PI * 4.0 + phase));
+        }
+
+        return points;
+    }
+
+    private static string[] CreateTimeTags(Point3D[] points, int index, AxisValueFormat format)
+    {
+        var pattern = format switch
+        {
+            AxisValueFormat.Date => "yyyy-MM-dd",
+            AxisValueFormat.Time => "HH:mm:ss.fff",
+            _ => "yyyy-MM-dd HH:mm:ss.fff",
+        };
+
+        var tags = new string[points.Length];
+        for (var i = 0; i < points.Length; i++)
+        {
+            var timestamp = DateTime.FromOADate(points[i].X);
+            tags[i] = $"传感器 {index + 1}\n{timestamp.ToString(pattern)}   Y = {points[i].Y:0.###}   Z = {points[i].Z:0.###}";
+        }
+
+        return tags;
     }
 }
