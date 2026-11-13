@@ -36,6 +36,12 @@ public partial class MainWindow : Window
     private readonly CheckBox _transparentCheck;
     private readonly CheckBox _msCheck;
     private readonly CheckBox _extremeCheck;
+    private readonly CheckBox _reverseAxisCheck;
+    private readonly CheckBox _legendOffsetCheck;
+    private readonly CheckBox _legendAvoidCheck;
+    private readonly CheckBox _horizontalReverseCheck;
+    private readonly CheckBox _verticalReverseCheck;
+    private readonly ComboBox _legendPositionCombo;
     private readonly ComboBox _themeCombo;
     private readonly ComboBox _projectionCombo;
     private readonly ComboBox _paletteCombo;
@@ -72,6 +78,12 @@ public partial class MainWindow : Window
         _transparentCheck = this.FindControl<CheckBox>("TransparentCheck")!;
         _msCheck = this.FindControl<CheckBox>("MsCheck")!;
         _extremeCheck = this.FindControl<CheckBox>("ExtremeCheck")!;
+        _reverseAxisCheck = this.FindControl<CheckBox>("ReverseAxisCheck")!;
+        _legendOffsetCheck = this.FindControl<CheckBox>("LegendOffsetCheck")!;
+        _legendAvoidCheck = this.FindControl<CheckBox>("LegendAvoidCheck")!;
+        _horizontalReverseCheck = this.FindControl<CheckBox>("HorizontalReverseCheck")!;
+        _verticalReverseCheck = this.FindControl<CheckBox>("VerticalReverseCheck")!;
+        _legendPositionCombo = this.FindControl<ComboBox>("LegendPositionCombo")!;
         _themeCombo = this.FindControl<ComboBox>("ThemeCombo")!;
         _projectionCombo = this.FindControl<ComboBox>("ProjectionCombo")!;
         _paletteCombo = this.FindControl<ComboBox>("PaletteCombo")!;
@@ -148,8 +160,36 @@ public partial class MainWindow : Window
         _plot.ShowLegend = _legendCheck.IsChecked == true;
         _plot.IsAspectRatioLocked = _aspectCheck.IsChecked == true;
 
+        _plot.LegendOffset = _legendOffsetCheck.IsChecked == true
+            ? new Vector(12, 8)
+            : default;
+        _plot.IsLegendAvoidanceEnabled = _legendAvoidCheck.IsChecked == true;
+
+        _plot.IsHorizontalRotationReversed = _horizontalReverseCheck.IsChecked == true;
+        _plot.IsVerticalRotationReversed = _verticalReverseCheck.IsChecked == true;
+
         ApplyInteractionSettings();
         ApplyTransparentBackground();
+    }
+
+    private void OnLegendPositionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (!_ready)
+        {
+            return;
+        }
+
+        _plot.LegendPosition = (LegendPosition)_legendPositionCombo.SelectedIndex;
+    }
+
+    private void OnReverseAxisChanged(object? sender, RoutedEventArgs e)
+    {
+        if (!_ready)
+        {
+            return;
+        }
+
+        BuildSeries();
     }
 
     private void ApplyInteractionSettings()
@@ -384,10 +424,18 @@ public partial class MainWindow : Window
         _selectionText.Text = "未选中任何数据点";
 
         var extreme = _extremeCheck.IsChecked == true;
-        ApplyAxisRanges(extreme);
-
         var format = _plot.XAxisValueFormat;
         var timeMode = !extreme && format != AxisValueFormat.Numeric;
+
+        // 时间轴以“天”为单位，与普通数值轴数量级相差极大；锁定等长轴后 X 轴才有可见长度。
+        if (timeMode)
+        {
+            _aspectCheck.IsChecked = true;
+            _plot.IsAspectRatioLocked = true;
+        }
+
+        ApplyAxisRanges(extreme, !timeMode && _reverseAxisCheck.IsChecked == true);
+
         var count = timeMode ? 3 : 5;
 
         _plot.XAxisTitle = timeMode ? "时间" : "X";
@@ -438,14 +486,42 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyAxisRanges(bool extreme)
+    /// <summary>
+    /// 设置轴两端的数值。名称中的“左 / 右（下 / 上）”指默认视角下屏幕上看到的轴两端：
+    /// X / Z 默认左（下）端为较小值，Y 轴默认左端（左上方）为较大值。
+    /// </summary>
+    private void ApplyAxisRanges(bool extreme, bool reverse)
     {
-        _plot.XAxisMinimum = extreme ? 0.1 : double.NaN;
-        _plot.XAxisMaximum = extreme ? 0.2 : double.NaN;
-        _plot.YAxisMinimum = extreme ? 40 : double.NaN;
-        _plot.YAxisMaximum = extreme ? 41 : double.NaN;
-        _plot.ZAxisMinimum = extreme ? 0 : double.NaN;
-        _plot.ZAxisMaximum = extreme ? 20000 : double.NaN;
+        if (extreme)
+        {
+            // 量级悬殊示例：X 0.1~0.2、Y 40~41（左端较大）、Z 0~20000。
+            _plot.XAxisLeft = 0.1;
+            _plot.XAxisRight = 0.2;
+            _plot.YAxisLeft = 41;
+            _plot.YAxisRight = 40;
+            _plot.ZAxisBottom = 0;
+            _plot.ZAxisTop = 20000;
+            return;
+        }
+
+        if (reverse)
+        {
+            // 反向示例：X 轴左端为 1（自右向左递减）、Z 轴底端为 2（自顶向下递减）。
+            _plot.XAxisLeft = 1;
+            _plot.XAxisRight = -1;
+            _plot.YAxisLeft = double.NaN;
+            _plot.YAxisRight = double.NaN;
+            _plot.ZAxisBottom = 2;
+            _plot.ZAxisTop = 0;
+            return;
+        }
+
+        _plot.XAxisLeft = double.NaN;
+        _plot.XAxisRight = double.NaN;
+        _plot.YAxisLeft = double.NaN;
+        _plot.YAxisRight = double.NaN;
+        _plot.ZAxisBottom = double.NaN;
+        _plot.ZAxisTop = double.NaN;
     }
 
     /// <summary>量级悬殊示例数据：X 0.1~0.2、Y 40~41、Z 0~20000。</summary>

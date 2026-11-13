@@ -100,6 +100,21 @@ public partial class Plot3DView : Control
     public static readonly StyledProperty<bool> ShowLegendProperty =
         AvaloniaProperty.Register<Plot3DView, bool>(nameof(ShowLegend));
 
+    /// <summary>图例位置（控件四角 / 四边 / 居中）。</summary>
+    public static readonly StyledProperty<LegendPosition> LegendPositionProperty =
+        AvaloniaProperty.Register<Plot3DView, LegendPosition>(nameof(LegendPosition), LegendPosition.TopLeft);
+
+    /// <summary>图例相对所选位置的偏移（像素）。</summary>
+    public static readonly StyledProperty<Vector> LegendOffsetProperty =
+        AvaloniaProperty.Register<Plot3DView, Vector>(nameof(LegendOffset));
+
+    /// <summary>
+    /// 是否让图例自动避让刻度文本与轴标题，默认开启。
+    /// 开启后图例会尽量避开文字；控件过小、无可用空位时选择重叠最少的位置。
+    /// </summary>
+    public static readonly StyledProperty<bool> IsLegendAvoidanceEnabledProperty =
+        AvaloniaProperty.Register<Plot3DView, bool>(nameof(IsLegendAvoidanceEnabled), true);
+
     /// <summary>文字字体。</summary>
     public static readonly StyledProperty<FontFamily> FontFamilyProperty =
         AvaloniaProperty.Register<Plot3DView, FontFamily>(nameof(FontFamily), FontFamily.Default);
@@ -124,29 +139,62 @@ public partial class Plot3DView : Control
     public static readonly StyledProperty<string?> ZAxisTitleProperty =
         AvaloniaProperty.Register<Plot3DView, string?>(nameof(ZAxisTitle), "Z");
 
-    /// <summary>X 轴最小值；NaN 表示自动。</summary>
+    /// <summary>
+    /// X 轴左端数值；<c>NaN</c> 表示自动。
+    /// “左端”是默认视角下 X 轴线位于屏幕左侧的一端；把较大的数值写到左端即可反转 X 轴，刻度自左向右递减。
+    /// </summary>
+    public static readonly StyledProperty<double> XAxisLeftProperty =
+        AvaloniaProperty.Register<Plot3DView, double>(nameof(XAxisLeft), double.NaN);
+
+    /// <summary>X 轴右端数值；<c>NaN</c> 表示自动。</summary>
+    public static readonly StyledProperty<double> XAxisRightProperty =
+        AvaloniaProperty.Register<Plot3DView, double>(nameof(XAxisRight), double.NaN);
+
+    /// <summary>
+    /// Y 轴左端数值；<c>NaN</c> 表示自动。默认视角下 Y 轴线自右下方向左上方延伸，
+    /// 因此左端通常显示较大的数值；把较小的数值写到左端即可反转 Y 轴。
+    /// </summary>
+    public static readonly StyledProperty<double> YAxisLeftProperty =
+        AvaloniaProperty.Register<Plot3DView, double>(nameof(YAxisLeft), double.NaN);
+
+    /// <summary>Y 轴右端数值；<c>NaN</c> 表示自动。</summary>
+    public static readonly StyledProperty<double> YAxisRightProperty =
+        AvaloniaProperty.Register<Plot3DView, double>(nameof(YAxisRight), double.NaN);
+
+    /// <summary>Z 轴底端数值；<c>NaN</c> 表示自动。</summary>
+    public static readonly StyledProperty<double> ZAxisBottomProperty =
+        AvaloniaProperty.Register<Plot3DView, double>(nameof(ZAxisBottom), double.NaN);
+
+    /// <summary>Z 轴顶端数值；<c>NaN</c> 表示自动。底端大于顶端时 Z 轴反向显示。</summary>
+    public static readonly StyledProperty<double> ZAxisTopProperty =
+        AvaloniaProperty.Register<Plot3DView, double>(nameof(ZAxisTop), double.NaN);
+
+    /// <summary>
+    /// X 轴最小值（兼容旧版本，仍然作为可绑定 / 可样式化的 StyledProperty 保留，
+    /// 变更时自动映射到 <see cref="XAxisLeftProperty" /> / <see cref="XAxisRightProperty" />）。
+    /// </summary>
     public static readonly StyledProperty<double> XAxisMinimumProperty =
-        AvaloniaProperty.Register<Plot3DView, double>(nameof(XAxisMinimum), double.NaN);
+        AvaloniaProperty.Register<Plot3DView, double>("XAxisMinimum", double.NaN);
 
-    /// <summary>X 轴最大值；NaN 表示自动。</summary>
+    /// <summary>X 轴最大值（兼容旧版本，自动映射到左 / 右轴端）。</summary>
     public static readonly StyledProperty<double> XAxisMaximumProperty =
-        AvaloniaProperty.Register<Plot3DView, double>(nameof(XAxisMaximum), double.NaN);
+        AvaloniaProperty.Register<Plot3DView, double>("XAxisMaximum", double.NaN);
 
-    /// <summary>Y 轴最小值；NaN 表示自动。</summary>
+    /// <summary>Y 轴最小值（兼容旧版本，自动映射到左 / 右轴端）。</summary>
     public static readonly StyledProperty<double> YAxisMinimumProperty =
-        AvaloniaProperty.Register<Plot3DView, double>(nameof(YAxisMinimum), double.NaN);
+        AvaloniaProperty.Register<Plot3DView, double>("YAxisMinimum", double.NaN);
 
-    /// <summary>Y 轴最大值；NaN 表示自动。</summary>
+    /// <summary>Y 轴最大值（兼容旧版本，自动映射到左 / 右轴端）。</summary>
     public static readonly StyledProperty<double> YAxisMaximumProperty =
-        AvaloniaProperty.Register<Plot3DView, double>(nameof(YAxisMaximum), double.NaN);
+        AvaloniaProperty.Register<Plot3DView, double>("YAxisMaximum", double.NaN);
 
-    /// <summary>Z 轴最小值；NaN 表示自动。</summary>
+    /// <summary>Z 轴最小值（兼容旧版本，自动映射到底 / 顶轴端）。</summary>
     public static readonly StyledProperty<double> ZAxisMinimumProperty =
-        AvaloniaProperty.Register<Plot3DView, double>(nameof(ZAxisMinimum), double.NaN);
+        AvaloniaProperty.Register<Plot3DView, double>("ZAxisMinimum", double.NaN);
 
-    /// <summary>Z 轴最大值；NaN 表示自动。</summary>
+    /// <summary>Z 轴最大值（兼容旧版本，自动映射到底 / 顶轴端）。</summary>
     public static readonly StyledProperty<double> ZAxisMaximumProperty =
-        AvaloniaProperty.Register<Plot3DView, double>(nameof(ZAxisMaximum), double.NaN);
+        AvaloniaProperty.Register<Plot3DView, double>("ZAxisMaximum", double.NaN);
 
     /// <summary>
     /// 是否锁定三个坐标轴为等长显示（图形显示为正方体），默认 <c>false</c>。
@@ -174,6 +222,14 @@ public partial class Plot3DView : Control
     /// <summary>是否允许鼠标左键拖动旋转。</summary>
     public static readonly StyledProperty<bool> IsRotationEnabledProperty =
         AvaloniaProperty.Register<Plot3DView, bool>(nameof(IsRotationEnabled), true);
+
+    /// <summary>是否反转左右拖动时的旋转方向（向左拖动改为向右旋转）。</summary>
+    public static readonly StyledProperty<bool> IsHorizontalRotationReversedProperty =
+        AvaloniaProperty.Register<Plot3DView, bool>(nameof(IsHorizontalRotationReversed));
+
+    /// <summary>是否反转上下拖动时的旋转方向（向上拖动改为向下旋转）。</summary>
+    public static readonly StyledProperty<bool> IsVerticalRotationReversedProperty =
+        AvaloniaProperty.Register<Plot3DView, bool>(nameof(IsVerticalRotationReversed));
 
     /// <summary>是否允许鼠标右键 / 中键拖动平移。</summary>
     public static readonly StyledProperty<bool> IsPanEnabledProperty =
@@ -349,6 +405,27 @@ public partial class Plot3DView : Control
         set => SetValue(ShowLegendProperty, value);
     }
 
+    /// <summary>图例位置，默认左上角。</summary>
+    public LegendPosition LegendPosition
+    {
+        get => GetValue(LegendPositionProperty);
+        set => SetValue(LegendPositionProperty, value);
+    }
+
+    /// <summary>图例相对所选位置的偏移（像素）。</summary>
+    public Vector LegendOffset
+    {
+        get => GetValue(LegendOffsetProperty);
+        set => SetValue(LegendOffsetProperty, value);
+    }
+
+    /// <summary>是否让图例自动避让刻度文本与轴标题，默认开启。</summary>
+    public bool IsLegendAvoidanceEnabled
+    {
+        get => GetValue(IsLegendAvoidanceEnabledProperty);
+        set => SetValue(IsLegendAvoidanceEnabledProperty, value);
+    }
+
     /// <summary>文字字体。</summary>
     public FontFamily FontFamily
     {
@@ -391,42 +468,96 @@ public partial class Plot3DView : Control
         set => SetValue(ZAxisTitleProperty, value);
     }
 
-    /// <summary>X 轴最小值；NaN 表示自动。</summary>
+    /// <summary>
+    /// X 轴左端数值（默认视角下 X 轴线在屏幕左侧的一端）；<c>NaN</c> 表示自动。
+    /// 左端大于右端时 X 轴反向显示，刻度自左向右递减。
+    /// </summary>
+    public double XAxisLeft
+    {
+        get => GetValue(XAxisLeftProperty);
+        set => SetValue(XAxisLeftProperty, value);
+    }
+
+    /// <summary>X 轴右端数值；<c>NaN</c> 表示自动。</summary>
+    public double XAxisRight
+    {
+        get => GetValue(XAxisRightProperty);
+        set => SetValue(XAxisRightProperty, value);
+    }
+
+    /// <summary>
+    /// Y 轴左端数值；<c>NaN</c> 表示自动。默认视角下 Y 轴线自右下方向左上方延伸，
+    /// 因此左端通常显示较大的数值。
+    /// </summary>
+    public double YAxisLeft
+    {
+        get => GetValue(YAxisLeftProperty);
+        set => SetValue(YAxisLeftProperty, value);
+    }
+
+    /// <summary>Y 轴右端数值；<c>NaN</c> 表示自动。</summary>
+    public double YAxisRight
+    {
+        get => GetValue(YAxisRightProperty);
+        set => SetValue(YAxisRightProperty, value);
+    }
+
+    /// <summary>Z 轴底端数值；<c>NaN</c> 表示自动。</summary>
+    public double ZAxisBottom
+    {
+        get => GetValue(ZAxisBottomProperty);
+        set => SetValue(ZAxisBottomProperty, value);
+    }
+
+    /// <summary>Z 轴顶端数值；<c>NaN</c> 表示自动。底端大于顶端时 Z 轴反向显示。</summary>
+    public double ZAxisTop
+    {
+        get => GetValue(ZAxisTopProperty);
+        set => SetValue(ZAxisTopProperty, value);
+    }
+
+    /// <summary>X 轴最小值；保留为兼容旧版本的写法，建议改用 <see cref="XAxisLeft" /> / <see cref="XAxisRight" />。</summary>
+    [Obsolete("请改用 XAxisLeft / XAxisRight：左端即 X 轴线在默认视角下的左端，把较大的值写到左端即可反转坐标轴。")]
     public double XAxisMinimum
     {
         get => GetValue(XAxisMinimumProperty);
         set => SetValue(XAxisMinimumProperty, value);
     }
 
-    /// <summary>X 轴最大值；NaN 表示自动。</summary>
+    /// <summary>X 轴最大值；保留为兼容旧版本的写法，建议改用 <see cref="XAxisLeft" /> / <see cref="XAxisRight" />。</summary>
+    [Obsolete("请改用 XAxisLeft / XAxisRight：右端即 X 轴线在默认视角下的右端，把较小的值写到右端即可反转坐标轴。")]
     public double XAxisMaximum
     {
         get => GetValue(XAxisMaximumProperty);
         set => SetValue(XAxisMaximumProperty, value);
     }
 
-    /// <summary>Y 轴最小值；NaN 表示自动。</summary>
+    /// <summary>Y 轴最小值；保留为兼容旧版本的写法，建议改用 <see cref="YAxisLeft" /> / <see cref="YAxisRight" />。</summary>
+    [Obsolete("请改用 YAxisLeft / YAxisRight：默认视角下 Y 轴左端位于屏幕左上方，通常显示较大的数值。")]
     public double YAxisMinimum
     {
         get => GetValue(YAxisMinimumProperty);
         set => SetValue(YAxisMinimumProperty, value);
     }
 
-    /// <summary>Y 轴最大值；NaN 表示自动。</summary>
+    /// <summary>Y 轴最大值；保留为兼容旧版本的写法，建议改用 <see cref="YAxisLeft" /> / <see cref="YAxisRight" />。</summary>
+    [Obsolete("请改用 YAxisLeft / YAxisRight：默认视角下 Y 轴左端位于屏幕左上方，通常显示较大的数值。")]
     public double YAxisMaximum
     {
         get => GetValue(YAxisMaximumProperty);
         set => SetValue(YAxisMaximumProperty, value);
     }
 
-    /// <summary>Z 轴最小值；NaN 表示自动。</summary>
+    /// <summary>Z 轴最小值；保留为兼容旧版本的写法，建议改用 <see cref="ZAxisBottom" /> / <see cref="ZAxisTop" />。</summary>
+    [Obsolete("请改用 ZAxisBottom / ZAxisTop：底端位于坐标框下方，把较大的值写到底端即可反转 Z 轴。")]
     public double ZAxisMinimum
     {
         get => GetValue(ZAxisMinimumProperty);
         set => SetValue(ZAxisMinimumProperty, value);
     }
 
-    /// <summary>Z 轴最大值；NaN 表示自动。</summary>
+    /// <summary>Z 轴最大值；保留为兼容旧版本的写法，建议改用 <see cref="ZAxisBottom" /> / <see cref="ZAxisTop" />。</summary>
+    [Obsolete("请改用 ZAxisBottom / ZAxisTop：顶端位于坐标框上方，把较小的值写到顶端即可反转 Z 轴。")]
     public double ZAxisMaximum
     {
         get => GetValue(ZAxisMaximumProperty);
@@ -476,6 +607,20 @@ public partial class Plot3DView : Control
     {
         get => GetValue(IsRotationEnabledProperty);
         set => SetValue(IsRotationEnabledProperty, value);
+    }
+
+    /// <summary>是否反转左右拖动时的旋转方向。</summary>
+    public bool IsHorizontalRotationReversed
+    {
+        get => GetValue(IsHorizontalRotationReversedProperty);
+        set => SetValue(IsHorizontalRotationReversedProperty, value);
+    }
+
+    /// <summary>是否反转上下拖动时的旋转方向。</summary>
+    public bool IsVerticalRotationReversed
+    {
+        get => GetValue(IsVerticalRotationReversedProperty);
+        set => SetValue(IsVerticalRotationReversedProperty, value);
     }
 
     /// <summary>是否允许鼠标拖动平移。</summary>
@@ -577,6 +722,9 @@ public partial class Plot3DView : Control
             item.Render(seriesContext);
         }
 
+        // 刻度文本与轴标题最后绘制，避免被数据曲线遮挡。
+        Renderer.RenderLabels(context, scene);
+
         if (ShowLegend)
         {
             DrawLegend(context, scene);
@@ -628,12 +776,12 @@ public partial class Plot3DView : Control
             size,
             PlotPadding,
             _dataBounds,
-            XAxisMinimum,
-            XAxisMaximum,
-            YAxisMinimum,
-            YAxisMaximum,
-            ZAxisMinimum,
-            ZAxisMaximum,
+            XAxisLeft,
+            XAxisRight,
+            YAxisLeft,
+            YAxisRight,
+            ZAxisBottom,
+            ZAxisTop,
             TickCount,
             ResolveTickDecimals(XAxisTickDecimals),
             ResolveTickDecimals(YAxisTickDecimals),
@@ -799,6 +947,44 @@ public partial class Plot3DView : Control
             InvalidateBrushes();
         }
 
+        // 旧版最小 / 最大值属性仍为 StyledProperty（可绑定 / 可样式化 / 可动画），
+        // 值变化时映射到新的左 / 右（下 / 上）轴端属性。
+        if (change.Property == XAxisMinimumProperty)
+        {
+            ApplyLegacyXAxisMinimum(change.NewValue is double value ? value : double.NaN);
+            return;
+        }
+
+        if (change.Property == XAxisMaximumProperty)
+        {
+            ApplyLegacyXAxisMaximum(change.NewValue is double value ? value : double.NaN);
+            return;
+        }
+
+        if (change.Property == YAxisMinimumProperty)
+        {
+            ApplyLegacyYAxisMinimum(change.NewValue is double value ? value : double.NaN);
+            return;
+        }
+
+        if (change.Property == YAxisMaximumProperty)
+        {
+            ApplyLegacyYAxisMaximum(change.NewValue is double value ? value : double.NaN);
+            return;
+        }
+
+        if (change.Property == ZAxisMinimumProperty)
+        {
+            ApplyLegacyZAxisMinimum(change.NewValue is double value ? value : double.NaN);
+            return;
+        }
+
+        if (change.Property == ZAxisMaximumProperty)
+        {
+            ApplyLegacyZAxisMaximum(change.NewValue is double value ? value : double.NaN);
+            return;
+        }
+
         // 关闭交互开关时立即清除对应的临时状态，避免残留高亮 / 准线。
         if (change.Property == IsPointHoverEnabledProperty)
         {
@@ -812,6 +998,85 @@ public partial class Plot3DView : Control
 
         InvalidateScene();
     }
+
+    #region 旧版轴范围属性映射
+
+    // 旧版最小 / 最大值属性仍可被绑定、样式和动画引用（StyledProperty），
+    // 写入时按“当前较小 / 较大端”映射到新的轴端，保持 1.x 的兼容行为。
+    private void ApplyLegacyXAxisMinimum(double value)
+    {
+        if (double.IsFinite(XAxisLeft) && double.IsFinite(XAxisRight) && XAxisLeft > XAxisRight)
+        {
+            SetCurrentValue(XAxisRightProperty, value);
+        }
+        else
+        {
+            SetCurrentValue(XAxisLeftProperty, value);
+        }
+    }
+
+    private void ApplyLegacyXAxisMaximum(double value)
+    {
+        if (double.IsFinite(XAxisLeft) && double.IsFinite(XAxisRight) && XAxisLeft > XAxisRight)
+        {
+            SetCurrentValue(XAxisLeftProperty, value);
+        }
+        else
+        {
+            SetCurrentValue(XAxisRightProperty, value);
+        }
+    }
+
+    private void ApplyLegacyYAxisMinimum(double value)
+    {
+        // Y 轴默认的较小端是右端（右下方），反向轴时改写在左端。
+        if (double.IsFinite(YAxisLeft) && double.IsFinite(YAxisRight) && YAxisLeft <= YAxisRight)
+        {
+            SetCurrentValue(YAxisLeftProperty, value);
+        }
+        else
+        {
+            SetCurrentValue(YAxisRightProperty, value);
+        }
+    }
+
+    private void ApplyLegacyYAxisMaximum(double value)
+    {
+        if (double.IsFinite(YAxisLeft) && double.IsFinite(YAxisRight) && YAxisLeft <= YAxisRight)
+        {
+            SetCurrentValue(YAxisRightProperty, value);
+        }
+        else
+        {
+            SetCurrentValue(YAxisLeftProperty, value);
+        }
+    }
+
+    private void ApplyLegacyZAxisMinimum(double value)
+    {
+        if (double.IsFinite(ZAxisBottom) && double.IsFinite(ZAxisTop) && ZAxisBottom > ZAxisTop)
+        {
+            SetCurrentValue(ZAxisTopProperty, value);
+        }
+        else
+        {
+            SetCurrentValue(ZAxisBottomProperty, value);
+        }
+    }
+
+    private void ApplyLegacyZAxisMaximum(double value)
+    {
+        if (double.IsFinite(ZAxisBottom) && double.IsFinite(ZAxisTop) && ZAxisBottom > ZAxisTop)
+        {
+            SetCurrentValue(ZAxisBottomProperty, value);
+        }
+        else
+        {
+            SetCurrentValue(ZAxisTopProperty, value);
+        }
+    }
+
+    #endregion
 
     private void AttachCollection(PlotSeries3DCollection? oldValue, PlotSeries3DCollection? newValue)
     {

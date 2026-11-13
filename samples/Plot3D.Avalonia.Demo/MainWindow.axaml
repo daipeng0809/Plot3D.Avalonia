@@ -42,6 +42,27 @@
           <CheckBox x:Name="LegendCheck" Content="图例" IsChecked="True" Click="OnToggle" />
           <CheckBox x:Name="AspectCheck" Content="锁定正方体比例" Click="OnToggle" />
 
+          <TextBlock Text="图例位置" FontSize="12" Opacity="0.72" />
+          <ComboBox x:Name="LegendPositionCombo" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="OnLegendPositionChanged">
+            <ComboBoxItem Content="左上" />
+            <ComboBoxItem Content="中上" />
+            <ComboBoxItem Content="右上" />
+            <ComboBoxItem Content="左中" />
+            <ComboBoxItem Content="居中" />
+            <ComboBoxItem Content="右中" />
+            <ComboBoxItem Content="左下" />
+            <ComboBoxItem Content="中下" />
+            <ComboBoxItem Content="右下" />
+          </ComboBox>
+          <CheckBox x:Name="LegendOffsetCheck" Content="图例偏移 (12, 8)" Click="OnToggle" />
+          <CheckBox x:Name="LegendAvoidCheck" Content="图例自动避让文字" IsChecked="True" Click="OnToggle" />
+
+          <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
+
+          <TextBlock Text="拖动方向" FontSize="12" Opacity="0.72" />
+          <CheckBox x:Name="HorizontalReverseCheck" Content="左右拖动反转" Click="OnToggle" />
+          <CheckBox x:Name="VerticalReverseCheck" Content="上下拖动反转" Click="OnToggle" />
+
           <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
 
           <TextBlock Text="数据点交互" FontSize="13" FontWeight="SemiBold" />
@@ -113,6 +134,10 @@
                     Content="量级悬殊示例"
                     ToolTip.Tip="X 0.1~0.2、Y 40~41、Z 0~20000"
                     Click="OnExtremeChanged" />
+          <CheckBox x:Name="ReverseAxisCheck"
+                    Content="坐标轴反向示例"
+                    ToolTip.Tip="X 轴左端为 1（自右向左递减）、Z 轴底端为 2（自顶向下递减）"
+                    Click="OnReverseAxisChanged" />
           <StackPanel Orientation="Horizontal" Spacing="4">
             <RadioButton x:Name="LineMode" Content="折线" IsChecked="True" IsCheckedChanged="OnModeChanged" />
             <RadioButton x:Name="ScatterMode" Content="散点" IsCheckedChanged="OnModeChanged" />

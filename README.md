@@ -41,11 +41,11 @@
 | --- | --- |
 | 图形 | 三维折线（`LineSeries3D`）、三维散点（`ScatterSeries3D`），可组合绘制，支持最新点高亮 |
 | 相机 | 轨道相机（方位角 / 仰角）、正交投影与透视投影、缩放、平移、双击复位 |
-| 坐标系 | 自动取整的坐标范围、可手动指定范围（数据超出时自动延伸）、等长轴锁定、自动刻度与标签、可固定刻度小数位、轴标题、数值 / 日期 / 时间格式（支持毫秒） |
+| 坐标系 | 自动取整的坐标范围、可指定每个轴两端的数值（X / Y 为左 / 右，Z 为下 / 上，支持反向轴）、数据超出时自动延伸、等长轴锁定、自动刻度与标签、可固定刻度小数位、轴标题、数值 / 日期 / 时间格式（支持毫秒） |
 | 点交互 | 悬停高亮 + 自定义提示、十字准线 X/Y/Z 坐标读数、左键点选（事件返回点对象）、右键菜单（保存 PNG / 删除点 / 自定义菜单项） |
-| 外观 | 背景色或完全透明背景、网格开关、坐标框开关、背面面板开关、刻度开关、轴标题开关、刻度与标题的偏移 / 间距 / 字号 |
+| 外观 | 背景色或完全透明背景、网格开关、坐标框开关、背面面板开关、刻度开关、轴标题开关、刻度与标题的偏移 / 间距 / 字号、图例位置（四角 / 四边 / 居中）与偏移、图例自动避让文字 |
 | 配色 | 自动调色板 / 固定颜色 / 随机颜色，内置 7 套调色板，支持透明度与线型 |
-| 交互 | 左键拖动旋转、右键/中键拖动平移、滚轮以光标为中心缩放 |
+| 交互 | 左键拖动旋转（左右 / 上下方向可反转）、右键/中键拖动平移、滚轮以光标为中心缩放 |
 | 主题 | 内置浅色 / 深色主题，所有颜色均可单独覆盖 |
 | 工程 | 场景缓存、批量几何绘制、文字布局缓存、无需反射，AOT / 裁剪安全 |
 
@@ -77,14 +77,14 @@
 ### 3.2 引用 NuGet 包（发布后）
 
 ```bash
-dotnet add package Plot3D.Avalonia --version 1.2.0
+dotnet add package Plot3D.Avalonia --version 1.3.0
 ```
 
 或手工在 csproj 中添加：
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Plot3D.Avalonia" Version="1.2.0" />
+  <PackageReference Include="Plot3D.Avalonia" Version="1.3.0" />
 </ItemGroup>
 ```
 
@@ -397,7 +397,7 @@ plot.ResetView();     // 全部复位
 
 | 操作 | 行为 |
 | --- | --- |
-| 左键拖动 | 旋转（方位角 + 仰角） |
+| 左键拖动 | 旋转（方位角 + 仰角，方向可通过 `IsHorizontalRotationReversed` / `IsVerticalRotationReversed` 反转） |
 | 右键 / 中键拖动 | 平移 |
 | 滚轮 | 以光标位置为中心缩放 |
 | 双击 | 重置视角 |
@@ -416,6 +416,10 @@ plot.ResetOnDoubleClick = false;
 
 plot.RotationSensitivity = 0.5;  // 度 / 像素
 plot.ZoomSensitivity = 0.15;     // 每格滚轮的指数增量
+
+// 拖动方向反转：默认向左拖动即向左旋转，开启后改为向右旋转
+plot.IsHorizontalRotationReversed = true;   // 左右反转
+plot.IsVerticalRotationReversed = true;     // 上下反转
 ```
 
 ---
@@ -671,6 +675,9 @@ plot.AxisTitleFontSize = 13;
 
 多行或超长刻度文本仍通过 `PlotPadding` 预留空间。
 
+> 刻度文本会自动避让：不同坐标轴在角点处的标签沿各自的向外方向轻微外移；同一轴上过密的标签（轴太短）会自动省略，避免文字叠字。
+> 刻度文本与轴标题始终绘制在数据曲线之上，不会被数据遮挡。
+
 ---
 
 ## 10. 坐标轴、网格与刻度
@@ -680,23 +687,44 @@ plot.AxisTitleFontSize = 13;
 默认根据所有可见系列的数据包围盒自动计算范围，并对齐到“好看”的刻度（1 / 2 / 2.5 / 5 × 10ⁿ）。
 空数据时显示 `0..1` 的默认坐标框；所有点重合时会自动扩展出可见范围。
 
-### 10.2 手动指定范围
+### 10.2 指定轴两端（左 / 右、下 / 上）
 
-只设置最小值或最大值也可以，未设置的一端继续自动计算：
+每个坐标轴用“屏幕上看到的两端”来指定数值，`NaN` 表示自动：
+
+| 轴 | 属性 | 含义 |
+| --- | --- | --- |
+| X | `XAxisLeft` / `XAxisRight` | X 轴线在默认视角下的左 / 右两端 |
+| Y | `YAxisLeft` / `YAxisRight` | Y 轴线在默认视角下的左（左上）/ 右（右下）两端 |
+| Z | `ZAxisBottom` / `ZAxisTop` | Z 轴线的底 / 顶两端 |
 
 ```csharp
-plot.XAxisMinimum = -1;
-plot.XAxisMaximum = 1;
+plot.XAxisLeft = -1;
+plot.XAxisRight = 1;
 
-plot.ZAxisMinimum = 0;
-plot.ZAxisMaximum = 2;
+plot.ZAxisBottom = 0;
+plot.ZAxisTop = 2;
+
+// 只设置一端也可以，另一端继续自动计算
+plot.YAxisLeft = 41;
 
 // 恢复自动
-plot.XAxisMinimum = double.NaN;
+plot.XAxisLeft = double.NaN;
 ```
 
-> 设定值只作为“期望范围”：如果数据超出 `XAxisMinimum` / `XAxisMaximum` 等边界，该端会自动延伸并重新取整，
-> 图形不会跑到坐标框外；数据为空时仍严格使用设定值。
+**反向坐标轴**：把较大的值写到左端（Z 轴写到下端）即得到反向轴，刻度仍按数值生成，但在屏幕上递减显示：
+
+```csharp
+plot.XAxisLeft = 10;   // X 轴左端 10
+plot.XAxisRight = 0;   // 右端 0，刻度自左向右为 10 → 0
+
+plot.ZAxisBottom = 2;  // Z 轴底端 2
+plot.ZAxisTop = 0;     // 顶端 0，刻度自下向上为 2 → 0
+```
+
+> - “左 / 右、下 / 上”以默认相机（`Azimuth = -37.5`、`Elevation = 30`）的显示方向为准；旋转相机后同一个轴端可能出现在屏幕另一侧，但属性始终代表同一个轴端。
+> - 默认视角下 Y 轴自右下方向左上方延伸，因此 Y 轴左端默认显示较大值；`YAxisLeft` 小于 `YAxisRight` 即反向 Y 轴。
+> - 设定值只作为“期望范围”：如果数据超出该端，会自动延伸并重新取整，图形不会跑到坐标框外。
+> - 旧版的最小 / 最大值属性（`XAxisMinimum`、`YAxisMaximum` 等）仍可使用，已标记为 `Obsolete` 并自动映射到对应轴端；它们仍是 `StyledProperty`，可继续用于数据绑定、样式与动画，建议后续逐步迁移。映射为单向（旧属性 → 新轴端），直接修改新轴端不会回写旧属性。
 
 ### 10.3 刻度数量
 
@@ -755,7 +783,7 @@ plot.IsAspectRatioLocked = true;
 ```
 
 - 只改变各轴的显示长度，刻度数值与标签仍按各轴真实范围排列；
-- 与手动指定的最小 / 最大值、日期时间轴、正交 / 透视投影均兼容；
+- 与轴两端设置、日期时间轴、正交 / 透视投影与反向轴均兼容；
 - 默认 `false`，保持各轴真实比例。
 
 ![等长轴锁定](https://cdn.jsdelivr.net/gh/daipeng0809/Plot3D.Avalonia@master/docs/screenshot-aspect-lock.png)
@@ -806,7 +834,26 @@ series.Title = "曲线 A";
 ```
 
 - 只有设置了非空 `Title` 且 `IsVisible = true` 的系列才会出现在图例中。
-- 图例固定在控件左上角，背景色由 `LegendBackground` 控制（未设置时使用主题色）。
+- 图例位置由 `LegendPosition` 控制（默认左上角），支持四角、四边与居中 9 个位置：
+
+| `LegendPosition` | 位置 |
+| --- | --- |
+| `TopLeft` / `TopCenter` / `TopRight` | 上排 |
+| `MiddleLeft` / `Center` / `MiddleRight` | 中排 |
+| `BottomLeft` / `BottomCenter` / `BottomRight` | 下排 |
+
+```csharp
+plot.LegendPosition = LegendPosition.BottomRight;
+plot.LegendOffset = new Vector(8, -4);   // 相对所选位置的像素偏移
+```
+
+- 背景色由 `LegendBackground` 控制（未设置时使用主题色）。
+- `LegendOffset` 为屏幕坐标方向的像素偏移（X 向右、Y 向下），结果会自动限制在控件范围内。
+- 默认开启图例自动避让（`IsLegendAvoidanceEnabled = true`）：图例若会压住刻度文本或轴标题，会从上一帧位置按最小位移推出，空间过窄时自动压缩行距（行高按实测文本高度计算），仍放不下时选择重叠最少的位置；图例尽可能保持在控件内，若图例本身大于控件则会被裁切。拖动旋转 / 缩放时位置保持稳定，障碍消失后会平滑回到配置位置。需要严格按 `LegendPosition` 摆放时可关闭：
+
+```csharp
+plot.IsLegendAvoidanceEnabled = false;
+```
 
 ---
 
@@ -826,6 +873,9 @@ series.Title = "曲线 A";
 | `GridBrush` | `IBrush?` | 主题网格色 | 网格线与图例边框 |
 | `PaneBrush` | `IBrush?` | 主题面板色 | 背面墙填充 |
 | `LegendBackground` | `IBrush?` | 半透明主题色 | 图例背景 |
+| `LegendPosition` | `LegendPosition` | `TopLeft` | 图例位置（四角 / 四边 / 居中） |
+| `LegendOffset` | `Vector` | `0,0` | 图例相对所选位置的像素偏移 |
+| `IsLegendAvoidanceEnabled` | `bool` | `true` | 图例自动避让刻度文本与轴标题 |
 | `ColorTheme` | `PlotTheme` | `Light` | 浅色 / 深色主题 |
 
 #### 显示开关
@@ -845,9 +895,9 @@ series.Title = "曲线 A";
 | 属性 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `XAxisTitle` / `YAxisTitle` / `ZAxisTitle` | `string?` | `"X"` / `"Y"` / `"Z"` | 轴标题，设为空字符串可隐藏 |
-| `XAxisMinimum` / `XAxisMaximum` | `double` | `NaN` | X 范围，`NaN` 表示自动 |
-| `YAxisMinimum` / `YAxisMaximum` | `double` | `NaN` | Y 范围 |
-| `ZAxisMinimum` / `ZAxisMaximum` | `double` | `NaN` | Z 范围 |
+| `XAxisLeft` / `XAxisRight` | `double` | `NaN` | X 轴左 / 右两端数值，`NaN` 表示自动；左端大于右端即反向轴 |
+| `YAxisLeft` / `YAxisRight` | `double` | `NaN` | Y 轴左（左上）/ 右（右下）两端数值；默认左端为较大值 |
+| `ZAxisBottom` / `ZAxisTop` | `double` | `NaN` | Z 轴底 / 顶两端数值；底端大于顶端即反向轴 |
 | `IsAspectRatioLocked` | `bool` | `false` | 三轴等长显示（正方体比例），刻度仍按真实数值排列 |
 | `TickCount` | `int` | `6` | 期望刻度数量（2..20） |
 | `PlotPadding` | `Thickness` | `56,40,56,40` | 绘图区留白 |
@@ -861,6 +911,8 @@ series.Title = "曲线 A";
 | `Zoom` | `double` | `1.0` | 缩放倍数 |
 | `Projection` | `ProjectionMode` | `Orthographic` | 投影方式 |
 | `IsRotationEnabled` | `bool` | `true` | 是否允许拖动旋转 |
+| `IsHorizontalRotationReversed` | `bool` | `false` | 是否反转左右拖动时的旋转方向 |
+| `IsVerticalRotationReversed` | `bool` | `false` | 是否反转上下拖动时的旋转方向 |
 | `IsPanEnabled` | `bool` | `true` | 是否允许拖动平移 |
 | `IsZoomEnabled` | `bool` | `true` | 是否允许滚轮缩放 |
 | `ResetOnDoubleClick` | `bool` | `true` | 双击是否复位 |
@@ -1044,8 +1096,8 @@ dotnet pack src/Plot3D.Avalonia/Plot3D.Avalonia.csproj -c Release -o ./artifacts
 
 ```
 artifacts/
-├── Plot3D.Avalonia.1.2.0.nupkg    —— 主包
-└── Plot3D.Avalonia.1.2.0.snupkg   —— 符号包（供 nuget.org 符号服务器使用，发布时随主包一并推送）
+├── Plot3D.Avalonia.1.3.0.nupkg    —— 主包
+└── Plot3D.Avalonia.1.3.0.snupkg   —— 符号包（供 nuget.org 符号服务器使用，发布时随主包一并推送）
 ```
 
 `SymbolPackageFormat` 为 `snupkg`，因此只产出 `.snupkg`，不会再额外生成 `.symbols.nupkg`。
@@ -1064,7 +1116,7 @@ artifacts/
 
 ```bash
 dotnet nuget add source ./artifacts --name Plot3DLocal
-dotnet add package Plot3D.Avalonia --version 1.2.0 --source Plot3DLocal
+dotnet add package Plot3D.Avalonia --version 1.3.0 --source Plot3DLocal
 ```
 
 ### 17.3 发布到 nuget.org
@@ -1079,7 +1131,7 @@ dotnet add package Plot3D.Avalonia --version 1.2.0 --source Plot3DLocal
    - Repository Owner / Repository：GitHub 用户名 / 仓库名
    - Workflow File：`publish.yml`（**只填文件名**，不含 `.github/workflows/` 路径）
 2. 触发发布，二选一：
-   - 推送标签：`git tag v1.2.0` → `git push origin v1.2.0`，版本号自动取自标签
+   - 推送标签：`git tag v1.3.0` → `git push origin v1.3.0`，版本号自动取自标签
    - 在 Actions 页面手动运行 `Publish to NuGet`，可通过输入框临时覆盖版本号
 
 流水线内部用 `NuGet/login@v1` 把 GitHub OIDC token 换成有效期 **1 小时**的临时 API Key，仓库和 Secrets 里都不保存长期密钥。
@@ -1089,7 +1141,7 @@ dotnet add package Plot3D.Avalonia --version 1.2.0 --source Plot3DLocal
 ```bash
 # 1. 在 https://www.nuget.org 的 API Keys 页面创建长期密钥
 # 2. 推送
-dotnet nuget push ./artifacts/Plot3D.Avalonia.1.2.0.nupkg \
+dotnet nuget push ./artifacts/Plot3D.Avalonia.1.3.0.nupkg \
   --api-key <YOUR_API_KEY> \
   --source https://api.nuget.org/v3/index.json
 ```
@@ -1101,7 +1153,7 @@ dotnet nuget push ./artifacts/Plot3D.Avalonia.1.2.0.nupkg \
 <PackageProjectUrl>项目主页</PackageProjectUrl>
 <RepositoryUrl>Git 仓库地址</RepositoryUrl>
 <PackageLicenseExpression>MIT</PackageLicenseExpression>
-<Version>1.2.0</Version>
+<Version>1.3.0</Version>
 ```
 
 > 版本号一经发布不可删除或覆盖，只能 unlist。需要修复时必须升版本号重新发布。
@@ -1361,6 +1413,17 @@ bitmap.Save("chart.png");
 ---
 
 ## 20. 版本与许可
+
+### 1.3.0
+
+- 坐标轴范围改用“屏幕上看到的两端”命名：`XAxisLeft` / `XAxisRight`、`YAxisLeft` / `YAxisRight`、`ZAxisBottom` / `ZAxisTop`；任意一端都可以是大值或小值，反向轴会自动按递减顺序分配刻度。旧的 `XAxisMinimum` 等属性保留为 `Obsolete` 映射。
+- 新增拖动旋转方向反转：`IsHorizontalRotationReversed` / `IsVerticalRotationReversed`。
+- 新增图例位置（`LegendPosition`，四角 / 四边 / 居中 9 个位置）与图例偏移（`LegendOffset`）。
+- 反向轴适配十字准线射线求交、背面面板与等长轴锁定。
+- 新增刻度标签自动避让：跨轴角点标签沿轴向外方向轻微外移，同轴过密时自动省略；刻度文本与轴标题改为在数据之后绘制，不再被曲线遮挡。
+- 新增图例自动避让（`IsLegendAvoidanceEnabled`，默认开启）：图例会自动避开刻度文本与轴标题，小尺寸下自动压缩行距并限制在控件内；避让采用“粘滞 + 最小位移推出 + 空隙回位”，旋转 / 缩放时不会抖动，示例新增对应开关。
+- 旧轴范围属性（`XAxisMinimum` 等）保留为 `StyledProperty`，可通过绑定、样式和动画驱动，数值变化自动映射到新的左 / 右（下 / 上）轴端。
+- 示例程序的时间轴模式自动锁定等长轴，避免时间轴（以“天”为单位）与其它轴量级悬殊时塌缩；新增“图例位置”“图例偏移”“左右 / 上下拖动反转”“坐标轴反向示例”选项。
 
 ### 1.2.0
 

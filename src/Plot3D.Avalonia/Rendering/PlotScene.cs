@@ -81,6 +81,15 @@ internal sealed class PlotScene
     /// <summary>远离相机的 Z 墙面位置。</summary>
     public required double FarZ { get; init; }
 
+    /// <summary>远离相机的 X 墙面四个角点索引（配合 <see cref="ScreenCorners" /> 填充面板）。</summary>
+    public required (int A, int B, int C, int D) XFace { get; init; }
+
+    /// <summary>远离相机的 Y 墙面四个角点索引。</summary>
+    public required (int A, int B, int C, int D) YFace { get; init; }
+
+    /// <summary>远离相机的 Z 墙面四个角点索引。</summary>
+    public required (int A, int B, int C, int D) ZFace { get; init; }
+
     /// <summary>包围盒中心（世界坐标）。</summary>
     public required Point3D Center { get; init; }
 
@@ -100,12 +109,12 @@ internal static class PlotSceneBuilder
         Size size,
         Thickness padding,
         BoundingBox3D dataBounds,
-        double xMinOverride,
-        double xMaxOverride,
-        double yMinOverride,
-        double yMaxOverride,
-        double zMinOverride,
-        double zMaxOverride,
+        double xLeft,
+        double xRight,
+        double yLeft,
+        double yRight,
+        double zBottom,
+        double zTop,
         int tickCount,
         int xTickDecimals,
         int yTickDecimals,
@@ -127,13 +136,15 @@ internal static class PlotSceneBuilder
         var (dataMinY, dataMaxY) = hasData ? (dataBounds.MinY, dataBounds.MaxY) : (0.0, 1.0);
         var (dataMinZ, dataMaxZ) = hasData ? (dataBounds.MinZ, dataBounds.MaxZ) : (0.0, 1.0);
 
-        var (xLo, xHi, xFixedLo, xFixedHi) = ResolveAxis(dataMinX, dataMaxX, xMinOverride, xMaxOverride, GetMinimumSpan(xFormat), hasData);
-        var (yLo, yHi, yFixedLo, yFixedHi) = ResolveAxis(dataMinY, dataMaxY, yMinOverride, yMaxOverride, GetMinimumSpan(yFormat), hasData);
-        var (zLo, zHi, zFixedLo, zFixedHi) = ResolveAxis(dataMinZ, dataMaxZ, zMinOverride, zMaxOverride, GetMinimumSpan(zFormat), hasData);
+        // “左 / 右（下 / 上）”是用户视角下的轴两端：X / Z 默认左（下）端为较小值；
+        // Y 轴在默认视角下自右下方向左上方延伸，因此左端默认显示较大值。
+        var xRange = ResolveAxis(xLeft, xRight, dataMinX, dataMaxX, hasData, GetMinimumSpan(xFormat), defaultLeftIsLow: true);
+        var yRange = ResolveAxis(yLeft, yRight, dataMinY, dataMaxY, hasData, GetMinimumSpan(yFormat), defaultLeftIsLow: false);
+        var zRange = ResolveAxis(zBottom, zTop, dataMinZ, dataMaxZ, hasData, GetMinimumSpan(zFormat), defaultLeftIsLow: true);
 
-        var xTicks = AxisTicks.Create(xLo, xHi, tickCount, xFixedLo, xFixedHi, xFormat, axisTimeMilliseconds, xTickDecimals);
-        var yTicks = AxisTicks.Create(yLo, yHi, tickCount, yFixedLo, yFixedHi, yFormat, axisTimeMilliseconds, yTickDecimals);
-        var zTicks = AxisTicks.Create(zLo, zHi, tickCount, zFixedLo, zFixedHi, zFormat, axisTimeMilliseconds, zTickDecimals);
+        var xTicks = AxisTicks.Create(xRange.Lo, xRange.Hi, tickCount, xRange.FixedLo, xRange.FixedHi, xFormat, axisTimeMilliseconds, xTickDecimals);
+        var yTicks = AxisTicks.Create(yRange.Lo, yRange.Hi, tickCount, yRange.FixedLo, yRange.FixedHi, yFormat, axisTimeMilliseconds, yTickDecimals);
+        var zTicks = AxisTicks.Create(zRange.Lo, zRange.Hi, tickCount, zRange.FixedLo, zRange.FixedHi, zFormat, axisTimeMilliseconds, zTickDecimals);
 
         var xMin = xTicks.Min;
         var xMax = xTicks.Max;
@@ -142,16 +153,22 @@ internal static class PlotSceneBuilder
         var zMin = zTicks.Min;
         var zMax = zTicks.Max;
 
+        // 反向轴的刻度仍按数值递升生成，但投影时沿该轴取负，使两端数值与屏幕左右 / 上下对应。
+        var xReversed = xRange.Reversed;
+        var yReversed = yRange.Reversed;
+        var zReversed = zRange.Reversed;
+
         var center = new Point3D((xMin + xMax) * 0.5, (yMin + yMax) * 0.5, (zMin + zMax) * 0.5);
         var spanX = xMax - xMin;
         var spanY = yMax - yMin;
         var spanZ = zMax - zMin;
 
         // 等长轴锁定：把三个轴分别归一到相同长度（1），坐标框因此显示为正方体，
-        // 各轴刻度仍按真实数值排列；关闭时系数全为 1，保持真实比例。
-        var axisScaleX = aspectLocked ? GetNormalizeScale(spanX) : 1.0;
-        var axisScaleY = aspectLocked ? GetNormalizeScale(spanY) : 1.0;
-        var axisScaleZ = aspectLocked ? GetNormalizeScale(spanZ) : 1.0;
+        // 各轴刻度仍按真实数值排列；关闭时系数为 ±1，保持真实比例。
+        // 负系数表示该轴反向：数值方向与屏幕方向相反，刻度自左向右（或自下向上）递减。
+        var axisScaleX = (xReversed ? -1.0 : 1.0) * (aspectLocked ? GetNormalizeScale(spanX) : 1.0);
+        var axisScaleY = (yReversed ? -1.0 : 1.0) * (aspectLocked ? GetNormalizeScale(spanY) : 1.0);
+        var axisScaleZ = (zReversed ? -1.0 : 1.0) * (aspectLocked ? GetNormalizeScale(spanZ) : 1.0);
 
         var diagonal = Math.Sqrt(
             spanX * spanX +
@@ -284,6 +301,16 @@ internal static class PlotSceneBuilder
         var yEdge = BuildEdge(corners, screenCorners, PickBottomEdge(screenCorners, (0, 2), (4, 6)), screenCenter);
         var zEdge = BuildEdge(corners, screenCorners, PickLeftVerticalEdge(screenCorners), screenCenter);
 
+        // 反向轴会沿该轴翻转投影，相机在正侧时远墙可能落在数值较大的一端。
+        var farX = (eyeX >= 0) == !xReversed ? xMin : xMax;
+        var farY = (eyeY >= 0) == !yReversed ? yMin : yMax;
+        var farZ = (eyeZ >= 0) == !zReversed ? zMin : zMax;
+
+        // 面板角点按远墙所在的数据端选择：bit = 0 的角点取各轴的较小值。
+        var xFace = NearEqual(farX, xMin) ? (A: 0, B: 1, C: 3, D: 2) : (A: 4, B: 5, C: 7, D: 6);
+        var yFace = NearEqual(farY, yMin) ? (A: 0, B: 1, C: 5, D: 4) : (A: 2, B: 3, C: 7, D: 6);
+        var zFace = NearEqual(farZ, zMin) ? (A: 0, B: 2, C: 6, D: 4) : (A: 1, B: 3, C: 7, D: 5);
+
         return new PlotScene
         {
             ViewSize = size,
@@ -296,9 +323,12 @@ internal static class PlotSceneBuilder
             XEdge = xEdge,
             YEdge = yEdge,
             ZEdge = zEdge,
-            FarX = eyeX >= 0 ? xMin : xMax,
-            FarY = eyeY >= 0 ? yMin : yMax,
-            FarZ = eyeZ >= 0 ? zMin : zMax,
+            FarX = farX,
+            FarY = farY,
+            FarZ = farZ,
+            XFace = xFace,
+            YFace = yFace,
+            ZFace = zFace,
             Center = center,
             Diagonal = diagonal,
             VisualDiagonal = visualDiagonal,
@@ -316,63 +346,136 @@ internal static class PlotSceneBuilder
     private static double GetNormalizeScale(double span) =>
         double.IsFinite(span) && span > 1e-12 ? 1.0 / span : 1.0;
 
-    private static (double Min, double Max, bool FixedMin, bool FixedMax) ResolveAxis(
-        double dataMin,
-        double dataMax,
-        double overrideMin,
-        double overrideMax,
-        double minimumSpan,
-        bool hasData)
-    {
-        var fixedMin = double.IsFinite(overrideMin);
-        var fixedMax = double.IsFinite(overrideMax);
-        var min = fixedMin ? overrideMin : dataMin;
-        var max = fixedMax ? overrideMax : dataMax;
+    /// <summary>单轴解析结果：递升的数值范围、两端是否由用户固定，以及该轴是否反向显示。</summary>
+    private readonly record struct AxisExtent(double Lo, double Hi, bool FixedLo, bool FixedHi, bool Reversed);
 
-        if (!double.IsFinite(min) || !double.IsFinite(max))
+    /// <summary>
+    /// 把用户设置的轴两端（左 / 右或下 / 上）解析为递升的数值范围，并保证范围覆盖全部数据。
+    /// </summary>
+    /// <param name="left">左端（Z 轴为底端）数值，<c>NaN</c> 表示自动。</param>
+    /// <param name="right">右端（Z 轴为顶端）数值，<c>NaN</c> 表示自动。</param>
+    /// <param name="dataLo">数据在该轴上的最小值。</param>
+    /// <param name="dataHi">数据在该轴上的最大值。</param>
+    /// <param name="hasData">是否存在有效数据。</param>
+    /// <param name="minimumSpan">零跨度时使用的最小可见跨度，0 表示按数值量级扩展。</param>
+    /// <param name="defaultLeftIsLow">两端都自动时，左端是否默认为数值较小的一端。</param>
+    private static AxisExtent ResolveAxis(
+        double left,
+        double right,
+        double dataLo,
+        double dataHi,
+        bool hasData,
+        double minimumSpan,
+        bool defaultLeftIsLow)
+    {
+        var leftFixed = double.IsFinite(left);
+        var rightFixed = double.IsFinite(right);
+
+        double leftValue;
+        double rightValue;
+
+        if (leftFixed && rightFixed)
         {
-            return (0, 1, false, false);
+            leftValue = left;
+            rightValue = right;
         }
+        else if (leftFixed)
+        {
+            leftValue = left;
+            rightValue = ResolveOpenRight(left, dataLo, dataHi, hasData, defaultLeftIsLow);
+        }
+        else if (rightFixed)
+        {
+            rightValue = right;
+            leftValue = ResolveOpenLeft(right, dataLo, dataHi, hasData, defaultLeftIsLow);
+        }
+        else if (defaultLeftIsLow)
+        {
+            leftValue = dataLo;
+            rightValue = dataHi;
+        }
+        else
+        {
+            leftValue = dataHi;
+            rightValue = dataLo;
+        }
+
+        if (!double.IsFinite(leftValue) || !double.IsFinite(rightValue))
+        {
+            leftValue = 0;
+            rightValue = 1;
+            leftFixed = false;
+            rightFixed = false;
+        }
+
+        // 左端大于右端（Y 轴默认相反）即反向坐标轴：刻度仍按数值递升生成，投影时沿该轴取负。
+        var reversed = defaultLeftIsLow ? leftValue > rightValue : leftValue < rightValue;
+        var leftIsLow = leftValue <= rightValue;
+        var lo = leftIsLow ? leftValue : rightValue;
+        var hi = leftIsLow ? rightValue : leftValue;
+        var fixedLo = leftIsLow ? leftFixed : rightFixed;
+        var fixedHi = leftIsLow ? rightFixed : leftFixed;
 
         // 数据超出用户指定范围时自动延伸该端，并把延伸端交给刻度取整，避免图形跑出坐标框。
         if (hasData)
         {
-            if (dataMin < min)
+            if (dataLo < lo)
             {
-                min = dataMin;
-                fixedMin = false;
+                lo = dataLo;
+                fixedLo = false;
             }
 
-            if (dataMax > max)
+            if (dataHi > hi)
             {
-                max = dataMax;
-                fixedMax = false;
+                hi = dataHi;
+                fixedHi = false;
             }
         }
 
-        if (max <= min)
+        if (!(hi > lo))
         {
-            var span = minimumSpan > 0 ? minimumSpan : Math.Max(Math.Abs(max), 1.0);
-            if (fixedMin && fixedMax)
+            var span = minimumSpan > 0 ? minimumSpan : Math.Max(Math.Abs(hi), 1.0);
+            if (fixedLo)
             {
-                max = min + span;
+                hi = lo + span;
             }
-            else if (fixedMin)
+            else if (fixedHi)
             {
-                max = min + span;
-            }
-            else if (fixedMax)
-            {
-                min = max - span;
+                lo = hi - span;
             }
             else
             {
-                min -= span * 0.5;
-                max += span * 0.5;
+                lo -= span * 0.5;
+                hi += span * 0.5;
             }
         }
 
-        return (min, max, fixedMin, fixedMax);
+        return new AxisExtent(lo, hi, fixedLo, fixedHi, reversed);
+    }
+
+    /// <summary>
+    /// 求解自动的右端：保证数据落在 [右端, 左端] 或 [左端, 右端] 之间，且不强制反向。
+    /// </summary>
+    private static double ResolveOpenRight(double left, double dataLo, double dataHi, bool hasData, bool defaultLeftIsLow)
+    {
+        if (!hasData)
+        {
+            return left + (defaultLeftIsLow ? 1 : -1);
+        }
+
+        // 左端已越过数据上界时，把右端放在数据下界，形成反向轴并仍在同侧显示全部数据。
+        return left >= dataHi ? dataLo : dataHi;
+    }
+
+    /// <summary>求解自动的左端，规则与 <see cref="ResolveOpenRight" /> 对称。</summary>
+    private static double ResolveOpenLeft(double right, double dataLo, double dataHi, bool hasData, bool defaultLeftIsLow)
+    {
+        if (!hasData)
+        {
+            return right + (defaultLeftIsLow ? -1 : 1);
+        }
+
+        return right <= dataLo ? dataHi : dataLo;
     }
 
     /// <summary>
@@ -436,6 +539,18 @@ internal static class PlotSceneBuilder
         }
 
         return new AxisEdge(corners[a], corners[b], screenCorners[a], screenCorners[b], outward);
+    }
+
+    /// <summary>比较两个坐标值是否相同（允许极小的浮点误差）。</summary>
+    private static bool NearEqual(double a, double b)
+    {
+        if (a.Equals(b))
+        {
+            return true;
+        }
+
+        var scale = Math.Max(Math.Abs(a), Math.Abs(b));
+        return Math.Abs(a - b) <= Math.Max(1e-12, scale * 1e-12);
     }
 
     private static double DistanceSquared(Point a, Point b)

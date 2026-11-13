@@ -10,6 +10,7 @@ namespace Plot3D.Avalonia.Rendering;
 /// <remarks>
 /// 三个轴可以先经过独立的归一化系数缩放到相同长度（等长轴锁定），
 /// 因此世界坐标与屏幕坐标之间不再只差一个统一的 <c>scale</c>。
+/// 轴向系数为负数表示该轴反向显示（数值方向与屏幕方向相反）。
 /// </remarks>
 public readonly struct PlotProjection : IEquatable<PlotProjection>
 {
@@ -171,12 +172,20 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
             return false;
         }
 
-        var boundsMinX = (minX - _centerX) * _axisScaleX;
-        var boundsMinY = (minY - _centerY) * _axisScaleY;
-        var boundsMinZ = (minZ - _centerZ) * _axisScaleZ;
-        var boundsMaxX = (maxX - _centerX) * _axisScaleX;
-        var boundsMaxY = (maxY - _centerY) * _axisScaleY;
-        var boundsMaxZ = (maxZ - _centerZ) * _axisScaleZ;
+        var scaledMinX = (minX - _centerX) * _axisScaleX;
+        var scaledMaxX = (maxX - _centerX) * _axisScaleX;
+        var scaledMinY = (minY - _centerY) * _axisScaleY;
+        var scaledMaxY = (maxY - _centerY) * _axisScaleY;
+        var scaledMinZ = (minZ - _centerZ) * _axisScaleZ;
+        var scaledMaxZ = (maxZ - _centerZ) * _axisScaleZ;
+
+        // 反向轴的轴向系数为负，乘后边界会左右互换，必须先排序再交给 slab 求交。
+        var boundsMinX = Math.Min(scaledMinX, scaledMaxX);
+        var boundsMaxX = Math.Max(scaledMinX, scaledMaxX);
+        var boundsMinY = Math.Min(scaledMinY, scaledMaxY);
+        var boundsMaxY = Math.Max(scaledMinY, scaledMaxY);
+        var boundsMinZ = Math.Min(scaledMinZ, scaledMaxZ);
+        var boundsMaxZ = Math.Max(scaledMinZ, scaledMaxZ);
 
         double originX, originY, originZ;
         double directionX, directionY, directionZ;

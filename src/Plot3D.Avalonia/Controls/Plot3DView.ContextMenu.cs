@@ -23,6 +23,9 @@ public partial class Plot3DView
     private ContextMenu? _contextMenu;
     private bool _isExporting;
 
+    /// <summary>当前是否正在导出图像；导出期间图例不做回位动画等额外渲染。</summary>
+    internal bool IsExporting => _isExporting;
+
     /// <summary>构建右键菜单时触发，可在内置菜单项基础上增删或替换内容。</summary>
     public event EventHandler<PlotContextMenuEventArgs>? ContextMenuBuilding;
 

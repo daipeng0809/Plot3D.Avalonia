@@ -41,11 +41,11 @@ The control is drawn entirely with the Avalonia drawing APIs. It does not depend
 | --- | --- |
 | Charts | 3D lines (`LineSeries3D`) and 3D scatter (`ScatterSeries3D`), freely combined, with optional latest-point highlight |
 | Camera | Orbit camera (azimuth / elevation), orthographic and perspective projection, zoom, pan, double-click reset |
-| Axes | Automatic "nice" ranges, manual ranges (auto-extended when data exceeds them), equal-axis lock, automatic ticks and labels, fixed tick decimals, axis titles, numeric / date / time formats (millisecond precision) |
+| Axes | Automatic "nice" ranges, per-end axis values (X / Y as left / right, Z as bottom / top) with reversed-axis support, auto-extension when data exceeds them, equal-axis lock, automatic ticks and labels, fixed tick decimals, axis titles, numeric / date / time formats (millisecond precision) |
 | Point interaction | Hover highlight with custom tooltip, crosshair X/Y/Z readout, click selection (event returns the point object), context menu (save PNG / delete point / custom items) |
-| Appearance | Solid or fully transparent background, grid / box / pane / ticks / axis-title switches, tick and title offset, gap and font size |
+| Appearance | Solid or fully transparent background, grid / box / pane / ticks / axis-title switches, tick and title offset, gap and font size, legend position (corners / edges / center) and offset, automatic legend avoidance of text |
 | Colors | Auto palette / fixed / random colors, 7 built-in palettes, opacity and line style |
-| Input | Left-drag rotate, right/middle-drag pan, wheel zoom at cursor |
+| Input | Left-drag rotate (horizontal / vertical direction can be reversed), right/middle-drag pan, wheel zoom at cursor |
 | Themes | Built-in light and dark themes; every color can be overridden |
 | Engineering | Scene caching, batched geometry, text-layout caching, no reflection, AOT / trimming safe |
 
@@ -77,14 +77,14 @@ Add `src/Plot3D.Avalonia/Plot3D.Avalonia.csproj` to your solution and reference 
 ### 3.2 NuGet package
 
 ```bash
-dotnet add package Plot3D.Avalonia --version 1.2.0
+dotnet add package Plot3D.Avalonia --version 1.3.0
 ```
 
 Or manually:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Plot3D.Avalonia" Version="1.2.0" />
+  <PackageReference Include="Plot3D.Avalonia" Version="1.3.0" />
 </ItemGroup>
 ```
 
@@ -385,7 +385,7 @@ plot.ResetView();     // reset everything
 
 | Operation | Behavior |
 | --- | --- |
-| Left drag | Rotate (azimuth + elevation) |
+| Left drag | Rotate (azimuth + elevation; direction can be reversed with `IsHorizontalRotationReversed` / `IsVerticalRotationReversed`) |
 | Right / middle drag | Pan |
 | Wheel | Zoom around the cursor |
 | Double-click | Reset view |
@@ -404,6 +404,10 @@ plot.ResetOnDoubleClick = false;
 
 plot.RotationSensitivity = 0.5;  // degrees per pixel
 plot.ZoomSensitivity = 0.15;     // exponential step per wheel notch
+
+// Drag direction reversal: by default dragging left rotates left; enable these to rotate the other way
+plot.IsHorizontalRotationReversed = true;   // left / right
+plot.IsVerticalRotationReversed = true;     // up / down
 ```
 
 ---
@@ -659,6 +663,9 @@ plot.AxisTitleFontSize = 13;
 
 Multi-line or very long labels still require enough `PlotPadding`.
 
+> Tick labels avoid each other automatically: labels from different axes at a shared corner are nudged outwards along their own axis, while crowded labels on the same axis (a very short axis) are skipped instead of overlapping.
+> Tick labels and axis titles are always drawn above the data series, so curves never cover the text.
+
 ---
 
 ## 10. Axes, grid and ticks
@@ -668,23 +675,45 @@ Multi-line or very long labels still require enough `PlotPadding`.
 By default the range is computed from the bounding box of all visible series and aligned to "nice" ticks
 (1 / 2 / 2.5 / 5 × 10ⁿ). With no data a `0..1` box is shown; when all points coincide, a visible range is expanded automatically.
 
-### 10.2 Manual ranges
+### 10.2 Per-end axis values (left / right, bottom / top)
 
-One side can be fixed while the other stays automatic:
+Each axis is configured by the two ends you actually see on screen; `NaN` means automatic:
+
+| Axis | Properties | Meaning |
+| --- | --- | --- |
+| X | `XAxisLeft` / `XAxisRight` | Left / right ends of the X axis line in the default view |
+| Y | `YAxisLeft` / `YAxisRight` | Left (upper-left) / right (lower-right) ends of the Y axis line |
+| Z | `ZAxisBottom` / `ZAxisTop` | Bottom / top ends of the Z axis line |
 
 ```csharp
-plot.XAxisMinimum = -1;
-plot.XAxisMaximum = 1;
+plot.XAxisLeft = -1;
+plot.XAxisRight = 1;
 
-plot.ZAxisMinimum = 0;
-plot.ZAxisMaximum = 2;
+plot.ZAxisBottom = 0;
+plot.ZAxisTop = 2;
+
+// One end can be fixed while the other stays automatic
+plot.YAxisLeft = 41;
 
 // Back to automatic
-plot.XAxisMinimum = double.NaN;
+plot.XAxisLeft = double.NaN;
 ```
 
-> The values are treated as a *desired* range: if data exceeds `XAxisMinimum` / `XAxisMaximum`, that side is
-> extended and re-aligned to nice ticks so the plot never leaves the box. With no data the configured values are used as-is.
+**Reversed axes**: writing the larger value to the left end (or the bottom end for Z) reverses the axis; ticks are still
+generated in ascending order but are displayed in descending order on screen:
+
+```csharp
+plot.XAxisLeft = 10;   // left end 10
+plot.XAxisRight = 0;   // right end 0, ticks read 10 → 0 from left to right
+
+plot.ZAxisBottom = 2;  // bottom end 2
+plot.ZAxisTop = 0;     // top end 0, ticks read 2 → 0 from bottom to top
+```
+
+> - "Left / right, bottom / top" follow the default camera (`Azimuth = -37.5`, `Elevation = 30`). Rotating the camera may move that end to the other side of the screen, but a property always refers to the same end of the axis.
+> - In the default view the Y axis runs from the lower-right towards the upper-left, so its left end shows the larger value; `YAxisLeft` smaller than `YAxisRight` reverses the Y axis.
+> - Values are treated as a *desired* range: if data exceeds an end, that end is extended and re-aligned to nice ticks so the plot never leaves the box.
+> - The old `XAxisMinimum` / `XAxisMaximum` style properties still work but are marked `Obsolete` and map onto the corresponding axis ends; they remain `StyledProperty` members and can still be used for data binding, styles and animations, so migrate when convenient. The mapping is one-way (old property → new axis end); changing the new axis ends does not write back to the old properties.
 
 ### 10.3 Tick count
 
@@ -743,7 +772,7 @@ plot.IsAspectRatioLocked = true;
 ```
 
 - Only the displayed length changes; tick values and labels keep each axis' real range.
-- Works with manual ranges, date / time axes and both orthographic / perspective projections.
+- Works with per-end axis values, date / time axes, both projections and reversed axes.
 - Defaults to `false`, preserving true axis ratios.
 
 ![Equal-axis lock](https://cdn.jsdelivr.net/gh/daipeng0809/Plot3D.Avalonia@master/docs/screenshot-aspect-lock.png)
@@ -794,7 +823,26 @@ series.Title = "Curve A";
 ```
 
 - Only series with a non-empty `Title` and `IsVisible = true` appear in the legend.
-- The legend is pinned to the top-left corner; its background comes from `LegendBackground` (theme color by default).
+- `LegendPosition` places the legend (top-left by default); 9 positions are supported:
+
+| `LegendPosition` | Position |
+| --- | --- |
+| `TopLeft` / `TopCenter` / `TopRight` | Top row |
+| `MiddleLeft` / `Center` / `MiddleRight` | Middle row |
+| `BottomLeft` / `BottomCenter` / `BottomRight` | Bottom row |
+
+```csharp
+plot.LegendPosition = LegendPosition.BottomRight;
+plot.LegendOffset = new Vector(8, -4);   // pixel offset from the chosen position
+```
+
+- The background comes from `LegendBackground` (theme color by default).
+- `LegendOffset` uses screen directions (X to the right, Y downwards) and the result is clamped inside the control.
+- Legend avoidance is enabled by default (`IsLegendAvoidanceEnabled = true`): when the legend would cover tick labels or axis titles it is pushed out of the way with the smallest movement from its previous position, compresses its row spacing (measured from the actual text height) when space is tight, and falls back to the least-overlapping position; the legend is kept inside the control whenever it fits and is clipped when it is larger than the control. The position stays stable while rotating or zooming and glides back to the configured position once the obstacle disappears. Disable it to place the legend exactly at `LegendPosition`:
+
+```csharp
+plot.IsLegendAvoidanceEnabled = false;
+```
 
 ---
 
@@ -814,6 +862,9 @@ series.Title = "Curve A";
 | `GridBrush` | `IBrush?` | theme | Grid lines and legend border |
 | `PaneBrush` | `IBrush?` | theme | Far wall fill |
 | `LegendBackground` | `IBrush?` | theme | Legend background |
+| `LegendPosition` | `LegendPosition` | `TopLeft` | Legend position (corners / edges / center) |
+| `LegendOffset` | `Vector` | `0,0` | Pixel offset from the chosen legend position |
+| `IsLegendAvoidanceEnabled` | `bool` | `true` | Automatically keep the legend clear of tick labels and axis titles |
 | `ColorTheme` | `PlotTheme` | `Light` | Light / dark theme |
 
 #### Visibility
@@ -833,9 +884,9 @@ series.Title = "Curve A";
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
 | `XAxisTitle` / `YAxisTitle` / `ZAxisTitle` | `string?` | `"X"` / `"Y"` / `"Z"` | Axis titles; empty hides them |
-| `XAxisMinimum` / `XAxisMaximum` | `double` | `NaN` | X range, `NaN` = automatic |
-| `YAxisMinimum` / `YAxisMaximum` | `double` | `NaN` | Y range |
-| `ZAxisMinimum` / `ZAxisMaximum` | `double` | `NaN` | Z range |
+| `XAxisLeft` / `XAxisRight` | `double` | `NaN` | Left / right end values of the X axis, `NaN` = automatic; a larger left end reverses the axis |
+| `YAxisLeft` / `YAxisRight` | `double` | `NaN` | Left (upper-left) / right (lower-right) end values of the Y axis; the left end holds the larger value by default |
+| `ZAxisBottom` / `ZAxisTop` | `double` | `NaN` | Bottom / top end values of the Z axis; a larger bottom end reverses the axis |
 | `IsAspectRatioLocked` | `bool` | `false` | Equal-length axes (cube aspect); tick values keep their real ranges |
 | `TickCount` | `int` | `6` | Desired tick count (2..20) |
 | `PlotPadding` | `Thickness` | `56,40,56,40` | Plot area padding |
@@ -849,6 +900,8 @@ series.Title = "Curve A";
 | `Zoom` | `double` | `1.0` | Zoom factor |
 | `Projection` | `ProjectionMode` | `Orthographic` | Projection mode |
 | `IsRotationEnabled` | `bool` | `true` | Enable drag rotation |
+| `IsHorizontalRotationReversed` | `bool` | `false` | Reverse the rotation direction for horizontal drags |
+| `IsVerticalRotationReversed` | `bool` | `false` | Reverse the rotation direction for vertical drags |
 | `IsPanEnabled` | `bool` | `true` | Enable drag pan |
 | `IsZoomEnabled` | `bool` | `true` | Enable wheel zoom |
 | `ResetOnDoubleClick` | `bool` | `true` | Double-click resets the view |
@@ -1032,8 +1085,8 @@ Output:
 
 ```
 artifacts/
-├── Plot3D.Avalonia.1.2.0.nupkg    -- main package
-└── Plot3D.Avalonia.1.2.0.snupkg   -- symbol package (pushed together with the main package)
+├── Plot3D.Avalonia.1.3.0.nupkg    -- main package
+└── Plot3D.Avalonia.1.3.0.snupkg   -- symbol package (pushed together with the main package)
 ```
 
 `SymbolPackageFormat` is `snupkg`, so no `.symbols.nupkg` is produced.
@@ -1052,7 +1105,7 @@ The package contains:
 
 ```bash
 dotnet nuget add source ./artifacts --name Plot3DLocal
-dotnet add package Plot3D.Avalonia --version 1.2.0 --source Plot3DLocal
+dotnet add package Plot3D.Avalonia --version 1.3.0 --source Plot3DLocal
 ```
 
 ### 17.3 Publishing to nuget.org
@@ -1067,7 +1120,7 @@ The repository ships `.github/workflows/publish.yml`.
    - Repository Owner / Repository: your GitHub user / repository
    - Workflow File: `publish.yml` (**file name only**, without `.github/workflows/`)
 2. Trigger a release:
-   - Push a tag: `git tag v1.2.0` → `git push origin v1.2.0` (the version comes from the tag)
+   - Push a tag: `git tag v1.3.0` → `git push origin v1.3.0` (the version comes from the tag)
    - Or run `Publish to NuGet` manually and optionally override the version
 
 The workflow exchanges a GitHub OIDC token for a temporary NuGet API key (valid for **1 hour**), so no long-lived secrets are stored.
@@ -1077,7 +1130,7 @@ The workflow exchanges a GitHub OIDC token for a temporary NuGet API key (valid 
 ```bash
 # 1. Create an API key at https://www.nuget.org (API Keys page)
 # 2. Push
-dotnet nuget push ./artifacts/Plot3D.Avalonia.1.2.0.nupkg \
+dotnet nuget push ./artifacts/Plot3D.Avalonia.1.3.0.nupkg \
   --api-key <YOUR_API_KEY> \
   --source https://api.nuget.org/v3/index.json
 ```
@@ -1089,7 +1142,7 @@ Before publishing, verify:
 <PackageProjectUrl>project home</PackageProjectUrl>
 <RepositoryUrl>git repository</RepositoryUrl>
 <PackageLicenseExpression>MIT</PackageLicenseExpression>
-<Version>1.2.0</Version>
+<Version>1.3.0</Version>
 ```
 
 > Published versions cannot be deleted or overwritten, only unlisted. Fixes require a new version.
@@ -1348,6 +1401,17 @@ downsample in your business layer or enable `IsPointHoverEnabled` / `IsCrosshair
 ---
 
 ## 20. Version and license
+
+### 1.3.0
+
+- Axis ranges now use screen-oriented end names: `XAxisLeft` / `XAxisRight`, `YAxisLeft` / `YAxisRight`, `ZAxisBottom` / `ZAxisTop`. Either end may hold the larger value and reversed axes automatically get descending ticks. The old `XAxisMinimum` style properties remain as `Obsolete` mappings.
+- Added drag rotation direction reversal: `IsHorizontalRotationReversed` / `IsVerticalRotationReversed`.
+- Added legend positioning (`LegendPosition`, 9 corners / edges / center) and legend offset (`LegendOffset`).
+- Reversed axes are supported by crosshair ray intersection, far-wall panes and the equal-axis lock.
+- Tick labels now avoid each other: labels from different axes at a shared corner are nudged outwards, crowded labels on the same axis are skipped, and tick text / axis titles are drawn above the data so curves never cover them.
+- Legend avoidance (`IsLegendAvoidanceEnabled`, enabled by default): the legend keeps clear of tick labels and axis titles, compresses its rows on small controls and always stays inside; a sticky position, minimal push-out and a clearance-based return keep it steady while rotating or zooming, and the demo gained a matching switch.
+- The legacy axis range properties (`XAxisMinimum` etc.) remain `StyledProperty` members and can still be driven by bindings, styles and animations; their values are mapped onto the new left / right (bottom / top) axis ends.
+- The demo automatically enables the equal-axis lock in time-axis mode (day-based units would otherwise collapse the X axis); it also gained legend position / offset, drag reversal and reversed-axis options.
 
 ### 1.2.0
 

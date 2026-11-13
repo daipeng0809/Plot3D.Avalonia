@@ -69,6 +69,39 @@ public enum PlotTheme
 }
 
 /// <summary>
+/// 图例在控件中的位置，按“行优先”排列：顶部三个位置 → 中部三个位置 → 底部三个位置。
+/// </summary>
+public enum LegendPosition
+{
+    /// <summary>左上角（默认）。</summary>
+    TopLeft = 0,
+
+    /// <summary>顶部居中。</summary>
+    TopCenter = 1,
+
+    /// <summary>右上角。</summary>
+    TopRight = 2,
+
+    /// <summary>左侧居中。</summary>
+    MiddleLeft = 3,
+
+    /// <summary>正中间。</summary>
+    Center = 4,
+
+    /// <summary>右侧居中。</summary>
+    MiddleRight = 5,
+
+    /// <summary>左下角。</summary>
+    BottomLeft = 6,
+
+    /// <summary>底部居中。</summary>
+    BottomCenter = 7,
+
+    /// <summary>右下角。</summary>
+    BottomRight = 8,
+}
+
+/// <summary>
 /// 坐标轴数值的标签格式。时间类格式将轴数值按 OLE Automation 日期
 /// （<see cref="DateTime.ToOADate"/>，单位为“天”）转换为日期 / 时间文本。
 /// </summary>

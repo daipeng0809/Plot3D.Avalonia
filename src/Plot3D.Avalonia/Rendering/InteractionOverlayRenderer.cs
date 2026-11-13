@@ -171,7 +171,7 @@ internal sealed class InteractionOverlayRenderer
 
     private void DrawBox(DrawingContext dc, PlotScene scene, Point anchor, string text, IBrush textBrush)
     {
-        var layout = GetText(text, _owner.FontSize, textBrush);
+        var layout = GetText(text, ResolveToolTipFontSize(), textBrush);
         const double padX = 7;
         const double padY = 5;
 
@@ -200,6 +200,13 @@ internal sealed class InteractionOverlayRenderer
 
         dc.DrawRectangle(background, new Pen(border, 1), box, 4, 4);
         layout.Draw(dc, new Point(box.X + padX, box.Y + padY));
+    }
+
+    /// <summary>提示框字号；<see cref="Plot3DView.FontSize" /> 无效时回退为 12。</summary>
+    private double ResolveToolTipFontSize()
+    {
+        var size = _owner.FontSize;
+        return double.IsFinite(size) && size > 0.1 ? Math.Clamp(size, 4, 96) : 12;
     }
 
     private TextLayout GetText(string text, double fontSize, IBrush brush)

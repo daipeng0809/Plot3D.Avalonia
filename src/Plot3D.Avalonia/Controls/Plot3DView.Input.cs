@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Input;
+using Avalonia.Threading;
 
 namespace Plot3D.Avalonia.Controls;
 
@@ -25,6 +26,7 @@ public partial class Plot3DView
     private Point _pressPosition;
     private bool _pressMoved;
     private MouseButton? _pressedButton;
+    private int _legendReturnRequest;
 
     /// <inheritdoc />
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -98,6 +100,17 @@ public partial class Plot3DView
 
         if (_dragMode == DragMode.Rotate)
         {
+            // 反转选项只影响拖动手感：默认向左拖动即向左旋转，开启反转后改为向右旋转。
+            if (IsHorizontalRotationReversed)
+            {
+                deltaX = -deltaX;
+            }
+
+            if (IsVerticalRotationReversed)
+            {
+                deltaY = -deltaY;
+            }
+
             var sensitivity = double.IsFinite(RotationSensitivity) ? Math.Clamp(RotationSensitivity, 0.01, 5) : 0.5;
             var azimuth = double.IsFinite(Azimuth) ? Azimuth : DefaultAzimuth;
             var elevation = double.IsFinite(Elevation) ? Elevation : DefaultElevation;
@@ -207,6 +220,7 @@ public partial class Plot3DView
 
         SetCurrentValue(ZoomProperty, target);
         UpdateInteraction(mouse);
+        RequestLegendReturn();
         e.Handled = true;
     }
 
@@ -221,6 +235,7 @@ public partial class Plot3DView
         }
 
         ResetView();
+        RequestLegendReturn();
         e.Handled = true;
     }
 
@@ -284,6 +299,32 @@ public partial class Plot3DView
 
         _dragMode = DragMode.None;
         UpdateHoverCursor(_hoverPoint is not null);
+        RequestLegendReturn();
+    }
+
+    /// <summary>
+    /// 交互结束后请求一次“图例回位”。用短延时去抖：拖动 / 缩放连续发生时只会在结束后
+    /// 武装一次，避免回位动画与交互互相拉扯；随后由回位动画自行驱动后续帧。
+    /// </summary>
+    private async void RequestLegendReturn()
+    {
+        var request = ++_legendReturnRequest;
+        try
+        {
+            await Task.Delay(180);
+        }
+        catch
+        {
+            return;
+        }
+
+        if (request != _legendReturnRequest)
+        {
+            return;
+        }
+
+        Renderer.ArmLegendReturn();
+        InvalidateVisual();
     }
 
     /// <summary>重置视角到默认方位角与仰角（保留缩放与平移）。</summary>
