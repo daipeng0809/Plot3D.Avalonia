@@ -28,16 +28,19 @@ public partial class MainWindow : Window
     private readonly CheckBox _ticksCheck;
     private readonly CheckBox _axisTitleCheck;
     private readonly CheckBox _legendCheck;
+    private readonly CheckBox _aspectCheck;
     private readonly CheckBox _hoverCheck;
     private readonly CheckBox _crosshairCheck;
     private readonly CheckBox _selectCheck;
     private readonly CheckBox _latestCheck;
     private readonly CheckBox _transparentCheck;
     private readonly CheckBox _msCheck;
+    private readonly CheckBox _extremeCheck;
     private readonly ComboBox _themeCombo;
     private readonly ComboBox _projectionCombo;
     private readonly ComboBox _paletteCombo;
     private readonly ComboBox _axisFormatCombo;
+    private readonly ComboBox _decimalsCombo;
     private readonly RadioButton _lineMode;
     private readonly RadioButton _scatterMode;
     private readonly RadioButton _bothMode;
@@ -61,16 +64,19 @@ public partial class MainWindow : Window
         _ticksCheck = this.FindControl<CheckBox>("TicksCheck")!;
         _axisTitleCheck = this.FindControl<CheckBox>("AxisTitleCheck")!;
         _legendCheck = this.FindControl<CheckBox>("LegendCheck")!;
+        _aspectCheck = this.FindControl<CheckBox>("AspectCheck")!;
         _hoverCheck = this.FindControl<CheckBox>("HoverCheck")!;
         _crosshairCheck = this.FindControl<CheckBox>("CrosshairCheck")!;
         _selectCheck = this.FindControl<CheckBox>("SelectCheck")!;
         _latestCheck = this.FindControl<CheckBox>("LatestCheck")!;
         _transparentCheck = this.FindControl<CheckBox>("TransparentCheck")!;
         _msCheck = this.FindControl<CheckBox>("MsCheck")!;
+        _extremeCheck = this.FindControl<CheckBox>("ExtremeCheck")!;
         _themeCombo = this.FindControl<ComboBox>("ThemeCombo")!;
         _projectionCombo = this.FindControl<ComboBox>("ProjectionCombo")!;
         _paletteCombo = this.FindControl<ComboBox>("PaletteCombo")!;
         _axisFormatCombo = this.FindControl<ComboBox>("AxisFormatCombo")!;
+        _decimalsCombo = this.FindControl<ComboBox>("DecimalsCombo")!;
         _lineMode = this.FindControl<RadioButton>("LineMode")!;
         _scatterMode = this.FindControl<RadioButton>("ScatterMode")!;
         _bothMode = this.FindControl<RadioButton>("BothMode")!;
@@ -140,6 +146,7 @@ public partial class MainWindow : Window
 
         _plot.ShowAxisTitles = _axisTitleCheck.IsChecked == true;
         _plot.ShowLegend = _legendCheck.IsChecked == true;
+        _plot.IsAspectRatioLocked = _aspectCheck.IsChecked == true;
 
         ApplyInteractionSettings();
         ApplyTransparentBackground();
@@ -294,6 +301,29 @@ public partial class MainWindow : Window
         _plot.AxisTimeMilliseconds = _msCheck.IsChecked == true;
     }
 
+    private void OnDecimalsChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (!_ready)
+        {
+            return;
+        }
+
+        var decimals = _decimalsCombo.SelectedIndex switch
+        {
+            1 => 0d,
+            2 => 1d,
+            3 => 2d,
+            4 => 3d,
+            5 => 4d,
+            6 => 6d,
+            _ => double.NaN,
+        };
+
+        _plot.XAxisTickDecimals = decimals;
+        _plot.YAxisTickDecimals = decimals;
+        _plot.ZAxisTickDecimals = decimals;
+    }
+
     private void OnPointSelected(object? sender, PlotPointEventArgs e)
     {
         var tag = e.Point.Tag?.ToString();
@@ -329,6 +359,23 @@ public partial class MainWindow : Window
 
     private void OnRegenerate(object? sender, RoutedEventArgs e) => BuildSeries();
 
+    /// <summary>切换“量级悬殊示例”：锁定等长轴，并把三轴设为 0.1~0.2 / 40~41 / 0~20000。</summary>
+    private void OnExtremeChanged(object? sender, RoutedEventArgs e)
+    {
+        if (!_ready)
+        {
+            return;
+        }
+
+        if (_extremeCheck.IsChecked == true)
+        {
+            _aspectCheck.IsChecked = true;
+            _plot.IsAspectRatioLocked = true;
+        }
+
+        BuildSeries();
+    }
+
     private void OnResetView(object? sender, RoutedEventArgs e) => _plot.ResetView();
 
     private void BuildSeries()
@@ -336,8 +383,11 @@ public partial class MainWindow : Window
         _plot.Series.Clear();
         _selectionText.Text = "未选中任何数据点";
 
+        var extreme = _extremeCheck.IsChecked == true;
+        ApplyAxisRanges(extreme);
+
         var format = _plot.XAxisValueFormat;
-        var timeMode = format != AxisValueFormat.Numeric;
+        var timeMode = !extreme && format != AxisValueFormat.Numeric;
         var count = timeMode ? 3 : 5;
 
         _plot.XAxisTitle = timeMode ? "时间" : "X";
@@ -345,8 +395,12 @@ public partial class MainWindow : Window
 
         for (var index = 0; index < count; index++)
         {
-            var points = timeMode ? CreateTimePoints(index, format) : CreateSpiralPoints(index);
-            var tags = timeMode ? CreateTimeTags(points, index, format) : CreateSpiralTags(points, index);
+            var points = extreme
+                ? CreateExtremePoints(index)
+                : timeMode ? CreateTimePoints(index, format) : CreateSpiralPoints(index);
+            var tags = extreme
+                ? CreateExtremeTags(points, index)
+                : timeMode ? CreateTimeTags(points, index, format) : CreateSpiralTags(points, index);
 
             PointSeries3D series = _mode switch
             {
@@ -382,6 +436,49 @@ public partial class MainWindow : Window
 
             _plot.Series.Add(series);
         }
+    }
+
+    private void ApplyAxisRanges(bool extreme)
+    {
+        _plot.XAxisMinimum = extreme ? 0.1 : double.NaN;
+        _plot.XAxisMaximum = extreme ? 0.2 : double.NaN;
+        _plot.YAxisMinimum = extreme ? 40 : double.NaN;
+        _plot.YAxisMaximum = extreme ? 41 : double.NaN;
+        _plot.ZAxisMinimum = extreme ? 0 : double.NaN;
+        _plot.ZAxisMaximum = extreme ? 20000 : double.NaN;
+    }
+
+    /// <summary>量级悬殊示例数据：X 0.1~0.2、Y 40~41、Z 0~20000。</summary>
+    private static Point3D[] CreateExtremePoints(int index)
+    {
+        const int count = 480;
+        var points = new Point3D[count];
+        var phase = index * Math.PI * 2.0 / 5.0;
+
+        for (var i = 0; i < count; i++)
+        {
+            var t = i / (double)(count - 1);
+            var angle = t * Math.PI * 8.0 + phase;
+
+            points[i] = new Point3D(
+                0.1 + 0.1 * t,
+                40.0 + t,
+                10000.0 * (1.0 + Math.Sin(angle)));
+        }
+
+        return points;
+    }
+
+    private static string[] CreateExtremeTags(Point3D[] points, int index)
+    {
+        var tags = new string[points.Length];
+        for (var i = 0; i < points.Length; i++)
+        {
+            var point = points[i];
+            tags[i] = $"曲线 {index + 1} · 点 #{i}\nX = {point.X:0.000}   Y = {point.Y:0.00}   Z = {point.Z:0}";
+        }
+
+        return tags;
     }
 
     private static Point3D[] CreateSpiralPoints(int index)

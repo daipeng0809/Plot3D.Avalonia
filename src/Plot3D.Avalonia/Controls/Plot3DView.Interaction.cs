@@ -423,7 +423,7 @@ public partial class Plot3DView
         }
 
         // 射线几乎擦过包围盒时交点会远离视图平面，隐藏准线与读数，避免显示极端坐标。
-        if (offset > scene.Diagonal * CrosshairMaxOffsetFactor)
+        if (offset > scene.VisualDiagonal * CrosshairMaxOffsetFactor)
         {
             return false;
         }

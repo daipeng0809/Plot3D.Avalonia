@@ -84,8 +84,11 @@ internal sealed class PlotScene
     /// <summary>包围盒中心（世界坐标）。</summary>
     public required Point3D Center { get; init; }
 
-    /// <summary>包围盒对角线长度。</summary>
+    /// <summary>包围盒对角线长度（真实数据单位）。</summary>
     public required double Diagonal { get; init; }
+
+    /// <summary>归一化空间中的包围盒对角线长度（等长轴锁定时为正方体的对角线）。</summary>
+    public required double VisualDiagonal { get; init; }
 }
 
 /// <summary>
@@ -104,6 +107,9 @@ internal static class PlotSceneBuilder
         double zMinOverride,
         double zMaxOverride,
         int tickCount,
+        int xTickDecimals,
+        int yTickDecimals,
+        int zTickDecimals,
         AxisValueFormat xFormat,
         AxisValueFormat yFormat,
         AxisValueFormat zFormat,
@@ -113,19 +119,21 @@ internal static class PlotSceneBuilder
         double zoom,
         double panX,
         double panY,
-        bool perspective)
+        bool perspective,
+        bool aspectLocked)
     {
-        var (dataMinX, dataMaxX) = dataBounds.IsEmpty ? (0.0, 1.0) : (dataBounds.MinX, dataBounds.MaxX);
-        var (dataMinY, dataMaxY) = dataBounds.IsEmpty ? (0.0, 1.0) : (dataBounds.MinY, dataBounds.MaxY);
-        var (dataMinZ, dataMaxZ) = dataBounds.IsEmpty ? (0.0, 1.0) : (dataBounds.MinZ, dataBounds.MaxZ);
+        var hasData = !dataBounds.IsEmpty;
+        var (dataMinX, dataMaxX) = hasData ? (dataBounds.MinX, dataBounds.MaxX) : (0.0, 1.0);
+        var (dataMinY, dataMaxY) = hasData ? (dataBounds.MinY, dataBounds.MaxY) : (0.0, 1.0);
+        var (dataMinZ, dataMaxZ) = hasData ? (dataBounds.MinZ, dataBounds.MaxZ) : (0.0, 1.0);
 
-        var (xLo, xHi, xFixedLo, xFixedHi) = ResolveAxis(dataMinX, dataMaxX, xMinOverride, xMaxOverride, GetMinimumSpan(xFormat));
-        var (yLo, yHi, yFixedLo, yFixedHi) = ResolveAxis(dataMinY, dataMaxY, yMinOverride, yMaxOverride, GetMinimumSpan(yFormat));
-        var (zLo, zHi, zFixedLo, zFixedHi) = ResolveAxis(dataMinZ, dataMaxZ, zMinOverride, zMaxOverride, GetMinimumSpan(zFormat));
+        var (xLo, xHi, xFixedLo, xFixedHi) = ResolveAxis(dataMinX, dataMaxX, xMinOverride, xMaxOverride, GetMinimumSpan(xFormat), hasData);
+        var (yLo, yHi, yFixedLo, yFixedHi) = ResolveAxis(dataMinY, dataMaxY, yMinOverride, yMaxOverride, GetMinimumSpan(yFormat), hasData);
+        var (zLo, zHi, zFixedLo, zFixedHi) = ResolveAxis(dataMinZ, dataMaxZ, zMinOverride, zMaxOverride, GetMinimumSpan(zFormat), hasData);
 
-        var xTicks = AxisTicks.Create(xLo, xHi, tickCount, xFixedLo, xFixedHi, xFormat, axisTimeMilliseconds);
-        var yTicks = AxisTicks.Create(yLo, yHi, tickCount, yFixedLo, yFixedHi, yFormat, axisTimeMilliseconds);
-        var zTicks = AxisTicks.Create(zLo, zHi, tickCount, zFixedLo, zFixedHi, zFormat, axisTimeMilliseconds);
+        var xTicks = AxisTicks.Create(xLo, xHi, tickCount, xFixedLo, xFixedHi, xFormat, axisTimeMilliseconds, xTickDecimals);
+        var yTicks = AxisTicks.Create(yLo, yHi, tickCount, yFixedLo, yFixedHi, yFormat, axisTimeMilliseconds, yTickDecimals);
+        var zTicks = AxisTicks.Create(zLo, zHi, tickCount, zFixedLo, zFixedHi, zFormat, axisTimeMilliseconds, zTickDecimals);
 
         var xMin = xTicks.Min;
         var xMax = xTicks.Max;
@@ -135,13 +143,36 @@ internal static class PlotSceneBuilder
         var zMax = zTicks.Max;
 
         var center = new Point3D((xMin + xMax) * 0.5, (yMin + yMax) * 0.5, (zMin + zMax) * 0.5);
+        var spanX = xMax - xMin;
+        var spanY = yMax - yMin;
+        var spanZ = zMax - zMin;
+
+        // 等长轴锁定：把三个轴分别归一到相同长度（1），坐标框因此显示为正方体，
+        // 各轴刻度仍按真实数值排列；关闭时系数全为 1，保持真实比例。
+        var axisScaleX = aspectLocked ? GetNormalizeScale(spanX) : 1.0;
+        var axisScaleY = aspectLocked ? GetNormalizeScale(spanY) : 1.0;
+        var axisScaleZ = aspectLocked ? GetNormalizeScale(spanZ) : 1.0;
+
         var diagonal = Math.Sqrt(
-            (xMax - xMin) * (xMax - xMin) +
-            (yMax - yMin) * (yMax - yMin) +
-            (zMax - zMin) * (zMax - zMin));
+            spanX * spanX +
+            spanY * spanY +
+            spanZ * spanZ);
         if (!(diagonal > 1e-9))
         {
             diagonal = 1;
+        }
+
+        var visualSpanX = spanX * axisScaleX;
+        var visualSpanY = spanY * axisScaleY;
+        var visualSpanZ = spanZ * axisScaleZ;
+
+        var visualDiagonal = Math.Sqrt(
+            visualSpanX * visualSpanX +
+            visualSpanY * visualSpanY +
+            visualSpanZ * visualSpanZ);
+        if (!(visualDiagonal > 1e-9))
+        {
+            visualDiagonal = 1;
         }
 
         // 相机基向量：toEye 由中心指向相机，right / up 构成屏幕坐标系。
@@ -166,7 +197,7 @@ internal static class PlotSceneBuilder
         var upY = rightX * eyeZ;
         var upZ = -rightX * eyeY + rightY * eyeX;
 
-        var eyeDistance = perspective ? Math.Max(diagonal * 2.5, 1e-6) : 1.0;
+        var eyeDistance = perspective ? Math.Max(visualDiagonal * 2.5, 1e-6) : 1.0;
 
         var corners = new Point3D[8];
         for (var i = 0; i < 8; i++)
@@ -183,6 +214,7 @@ internal static class PlotSceneBuilder
             upX, upY, upZ,
             eyeX, eyeY, eyeZ,
             center.X, center.Y, center.Z,
+            axisScaleX, axisScaleY, axisScaleZ,
             1, 0, 0,
             eyeDistance, perspective);
 
@@ -235,6 +267,7 @@ internal static class PlotSceneBuilder
             upX, upY, upZ,
             eyeX, eyeY, eyeZ,
             center.X, center.Y, center.Z,
+            axisScaleX, axisScaleY, axisScaleZ,
             scale, offsetX, offsetY,
             eyeDistance, perspective);
 
@@ -268,6 +301,7 @@ internal static class PlotSceneBuilder
             FarZ = eyeZ >= 0 ? zMin : zMax,
             Center = center,
             Diagonal = diagonal,
+            VisualDiagonal = visualDiagonal,
         };
     }
 
@@ -278,12 +312,17 @@ internal static class PlotSceneBuilder
     private static double GetMinimumSpan(AxisValueFormat format) =>
         format == AxisValueFormat.Numeric ? 0 : 1.0;
 
+    /// <summary>等长轴锁定时的归一化系数：把该轴映射到长度 1。</summary>
+    private static double GetNormalizeScale(double span) =>
+        double.IsFinite(span) && span > 1e-12 ? 1.0 / span : 1.0;
+
     private static (double Min, double Max, bool FixedMin, bool FixedMax) ResolveAxis(
         double dataMin,
         double dataMax,
         double overrideMin,
         double overrideMax,
-        double minimumSpan)
+        double minimumSpan,
+        bool hasData)
     {
         var fixedMin = double.IsFinite(overrideMin);
         var fixedMax = double.IsFinite(overrideMax);
@@ -293,6 +332,22 @@ internal static class PlotSceneBuilder
         if (!double.IsFinite(min) || !double.IsFinite(max))
         {
             return (0, 1, false, false);
+        }
+
+        // 数据超出用户指定范围时自动延伸该端，并把延伸端交给刻度取整，避免图形跑出坐标框。
+        if (hasData)
+        {
+            if (dataMin < min)
+            {
+                min = dataMin;
+                fixedMin = false;
+            }
+
+            if (dataMax > max)
+            {
+                max = dataMax;
+                fixedMax = false;
+            }
         }
 
         if (max <= min)

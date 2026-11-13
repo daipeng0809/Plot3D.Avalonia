@@ -67,6 +67,7 @@ internal sealed class AxisTicks
     /// <param name="fixedMax">最大值是否由用户指定。</param>
     /// <param name="format">标签格式。</param>
     /// <param name="milliseconds">时间格式是否输出毫秒（步长小于 1 秒时自动输出）。</param>
+    /// <param name="labelDecimals">固定小数位数；<c>0</c> 表示只保留整数，<c>-1</c> 表示按步长自动。</param>
     public static AxisTicks Create(
         double dataMin,
         double dataMax,
@@ -74,7 +75,8 @@ internal sealed class AxisTicks
         bool fixedMin,
         bool fixedMax,
         AxisValueFormat format = AxisValueFormat.Numeric,
-        bool milliseconds = false)
+        bool milliseconds = false,
+        int labelDecimals = -1)
     {
         // 1. 规范化输入范围。
         if (!double.IsFinite(dataMin) || !double.IsFinite(dataMax))
@@ -106,11 +108,11 @@ internal sealed class AxisTicks
         var count = Math.Clamp(targetCount, 2, 20);
 
         return format == AxisValueFormat.Numeric
-            ? CreateNumeric(dataMin, dataMax, count, fixedMin, fixedMax)
+            ? CreateNumeric(dataMin, dataMax, count, fixedMin, fixedMax, labelDecimals)
             : CreateTime(dataMin, dataMax, count, fixedMin, fixedMax, format, milliseconds);
     }
 
-    private static AxisTicks CreateNumeric(double dataMin, double dataMax, int count, bool fixedMin, bool fixedMax)
+    private static AxisTicks CreateNumeric(double dataMin, double dataMax, int count, bool fixedMin, bool fixedMax, int labelDecimals = -1)
     {
         var rawStep = (dataMax - dataMin) / (count - 1);
         var magnitude = Math.Pow(10, Math.Floor(Math.Log10(rawStep)));
@@ -141,11 +143,12 @@ internal sealed class AxisTicks
             niceMax = niceMin + step;
         }
 
-        // 计算标签精度。
+        // 计算标签精度：数值步长决定必要精度，用户指定的固定小数位优先。
         var exponent = (int)Math.Floor(Math.Log10(step));
         var stepMantissa = step / Math.Pow(10, exponent);
         var extraDigits = Math.Abs(stepMantissa - 2.5) < 1e-6 ? 1 : 0;
-        var decimals = Math.Clamp(-exponent + extraDigits, 0, 8);
+        var valueDecimals = Math.Clamp(-exponent + extraDigits, 0, 8);
+        var decimals = labelDecimals >= 0 ? Math.Clamp(labelDecimals, 0, 8) : valueDecimals;
 
         // 生成刻度值（使用整数索引避免浮点累积误差）。
         var slots = (int)Math.Floor((niceMax - niceMin) / step + 1e-9);
@@ -159,7 +162,7 @@ internal sealed class AxisTicks
         for (var i = 0; i <= slots; i++)
         {
             var value = niceMin + i * step;
-            value = Math.Round(value, decimals);
+            value = Math.Round(value, valueDecimals);
             if (Math.Abs(value) < step * 1e-9)
             {
                 value = 0; // 消除 -0 与浮点粉尘。

@@ -41,7 +41,7 @@ The control is drawn entirely with the Avalonia drawing APIs. It does not depend
 | --- | --- |
 | Charts | 3D lines (`LineSeries3D`) and 3D scatter (`ScatterSeries3D`), freely combined, with optional latest-point highlight |
 | Camera | Orbit camera (azimuth / elevation), orthographic and perspective projection, zoom, pan, double-click reset |
-| Axes | Automatic "nice" ranges, manual ranges, automatic ticks and labels, axis titles, numeric / date / time formats (millisecond precision) |
+| Axes | Automatic "nice" ranges, manual ranges (auto-extended when data exceeds them), equal-axis lock, automatic ticks and labels, fixed tick decimals, axis titles, numeric / date / time formats (millisecond precision) |
 | Point interaction | Hover highlight with custom tooltip, crosshair X/Y/Z readout, click selection (event returns the point object), context menu (save PNG / delete point / custom items) |
 | Appearance | Solid or fully transparent background, grid / box / pane / ticks / axis-title switches, tick and title offset, gap and font size |
 | Colors | Auto palette / fixed / random colors, 7 built-in palettes, opacity and line style |
@@ -77,14 +77,14 @@ Add `src/Plot3D.Avalonia/Plot3D.Avalonia.csproj` to your solution and reference 
 ### 3.2 NuGet package
 
 ```bash
-dotnet add package Plot3D.Avalonia --version 1.1.2
+dotnet add package Plot3D.Avalonia --version 1.2.0
 ```
 
 Or manually:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Plot3D.Avalonia" Version="1.1.2" />
+  <PackageReference Include="Plot3D.Avalonia" Version="1.2.0" />
 </ItemGroup>
 ```
 
@@ -683,6 +683,9 @@ plot.ZAxisMaximum = 2;
 plot.XAxisMinimum = double.NaN;
 ```
 
+> The values are treated as a *desired* range: if data exceeds `XAxisMinimum` / `XAxisMaximum`, that side is
+> extended and re-aligned to nice ticks so the plot never leaves the box. With no data the configured values are used as-is.
+
 ### 10.3 Tick count
 
 ```csharp
@@ -690,6 +693,7 @@ plot.TickCount = 6;   // desired ticks per axis (including both ends), valid ran
 ```
 
 Label decimals are chosen from the step; very large / small values switch to scientific notation.
+Use `XAxisTickDecimals` and the other per-axis properties to fix the precision (see [10.6](#106-tick-decimals)).
 
 ### 10.4 Visibility switches
 
@@ -715,6 +719,34 @@ plot.PlotPadding = new Thickness(56, 40, 56, 40); // left, top, right, bottom
 ```
 
 Increase it when fonts are large or labels are long.
+
+### 10.6 Tick decimals
+
+```csharp
+plot.XAxisTickDecimals = 3;    // 0.100 / 0.120 / ...
+plot.YAxisTickDecimals = 1;    // 40.0 / 40.2 / ...
+plot.ZAxisTickDecimals = 0;    // integers only: 0 / 5000 / ...
+plot.XAxisTickDecimals = double.NaN;  // back to automatic (default)
+```
+
+- Valid range 0..8; `0` keeps integers, `NaN` chooses the precision from the step.
+- Only the label text changes; tick values are untouched.
+- Numeric axes only; date / time axes keep their time formats.
+
+### 10.7 Equal-axis lock (cube aspect)
+
+When the axes differ by orders of magnitude (for example X `0.1..0.2`, Y `40..41`, Z `0..20000`), drawing them at their true ratio
+collapses the box into a line. With `IsAspectRatioLocked` the three axes are scaled to the same displayed length, so the box appears as a cube:
+
+```csharp
+plot.IsAspectRatioLocked = true;
+```
+
+- Only the displayed length changes; tick values and labels keep each axis' real range.
+- Works with manual ranges, date / time axes and both orthographic / perspective projections.
+- Defaults to `false`, preserving true axis ratios.
+
+![Equal-axis lock](https://cdn.jsdelivr.net/gh/daipeng0809/Plot3D.Avalonia@master/docs/screenshot-aspect-lock.png)
 
 ---
 
@@ -804,6 +836,7 @@ series.Title = "Curve A";
 | `XAxisMinimum` / `XAxisMaximum` | `double` | `NaN` | X range, `NaN` = automatic |
 | `YAxisMinimum` / `YAxisMaximum` | `double` | `NaN` | Y range |
 | `ZAxisMinimum` / `ZAxisMaximum` | `double` | `NaN` | Z range |
+| `IsAspectRatioLocked` | `bool` | `false` | Equal-length axes (cube aspect); tick values keep their real ranges |
 | `TickCount` | `int` | `6` | Desired tick count (2..20) |
 | `PlotPadding` | `Thickness` | `56,40,56,40` | Plot area padding |
 
@@ -852,6 +885,7 @@ series.Title = "Curve A";
 | --- | --- | --- | --- |
 | `XAxisValueFormat` / `YAxisValueFormat` / `ZAxisValueFormat` | `AxisValueFormat` | `Numeric` | Numeric / date / time / date + time |
 | `AxisTimeMilliseconds` | `bool` | `false` | Include milliseconds in time formats |
+| `XAxisTickDecimals` / `YAxisTickDecimals` / `ZAxisTickDecimals` | `double` | `NaN` | Fixed tick label decimals, `0` = integers, `NaN` = automatic |
 | `TickLength` | `double` | `4` | Tick length (pixels) |
 | `TickLabelGap` | `double` | `3` | Gap between tick and label (pixels) |
 | `TickLabelOffset` | `Vector` | `0,0` | Global tick label offset |
@@ -998,8 +1032,8 @@ Output:
 
 ```
 artifacts/
-├── Plot3D.Avalonia.1.1.2.nupkg    -- main package
-└── Plot3D.Avalonia.1.1.2.snupkg   -- symbol package (pushed together with the main package)
+├── Plot3D.Avalonia.1.2.0.nupkg    -- main package
+└── Plot3D.Avalonia.1.2.0.snupkg   -- symbol package (pushed together with the main package)
 ```
 
 `SymbolPackageFormat` is `snupkg`, so no `.symbols.nupkg` is produced.
@@ -1018,7 +1052,7 @@ The package contains:
 
 ```bash
 dotnet nuget add source ./artifacts --name Plot3DLocal
-dotnet add package Plot3D.Avalonia --version 1.1.2 --source Plot3DLocal
+dotnet add package Plot3D.Avalonia --version 1.2.0 --source Plot3DLocal
 ```
 
 ### 17.3 Publishing to nuget.org
@@ -1033,7 +1067,7 @@ The repository ships `.github/workflows/publish.yml`.
    - Repository Owner / Repository: your GitHub user / repository
    - Workflow File: `publish.yml` (**file name only**, without `.github/workflows/`)
 2. Trigger a release:
-   - Push a tag: `git tag v1.1.2` → `git push origin v1.1.2` (the version comes from the tag)
+   - Push a tag: `git tag v1.2.0` → `git push origin v1.2.0` (the version comes from the tag)
    - Or run `Publish to NuGet` manually and optionally override the version
 
 The workflow exchanges a GitHub OIDC token for a temporary NuGet API key (valid for **1 hour**), so no long-lived secrets are stored.
@@ -1043,7 +1077,7 @@ The workflow exchanges a GitHub OIDC token for a temporary NuGet API key (valid 
 ```bash
 # 1. Create an API key at https://www.nuget.org (API Keys page)
 # 2. Push
-dotnet nuget push ./artifacts/Plot3D.Avalonia.1.1.2.nupkg \
+dotnet nuget push ./artifacts/Plot3D.Avalonia.1.2.0.nupkg \
   --api-key <YOUR_API_KEY> \
   --source https://api.nuget.org/v3/index.json
 ```
@@ -1055,7 +1089,7 @@ Before publishing, verify:
 <PackageProjectUrl>project home</PackageProjectUrl>
 <RepositoryUrl>git repository</RepositoryUrl>
 <PackageLicenseExpression>MIT</PackageLicenseExpression>
-<Version>1.1.2</Version>
+<Version>1.2.0</Version>
 ```
 
 > Published versions cannot be deleted or overwritten, only unlisted. Fixes require a new version.
@@ -1314,6 +1348,14 @@ downsample in your business layer or enable `IsPointHoverEnabled` / `IsCrosshair
 ---
 
 ## 20. Version and license
+
+### 1.2.0
+
+- Added equal-axis lock (`IsAspectRatioLocked`): the box stays a cube even when axis magnitudes differ wildly, while tick values keep their real ranges.
+- Added fixed tick decimals (`XAxisTickDecimals` / `YAxisTickDecimals` / `ZAxisTickDecimals`), 0..8 digits or integers only.
+- Manual min / max values are now auto-extended and re-aligned when data exceeds them, so the plot never leaves the box.
+- Crosshair and unprojection now work in the normalized space used by the equal-axis lock.
+- The demo application gained "cube aspect" and "tick decimals" options.
 
 ### 1.1.2
 

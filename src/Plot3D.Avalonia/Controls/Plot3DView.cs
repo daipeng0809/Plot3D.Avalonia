@@ -148,6 +148,13 @@ public partial class Plot3DView : Control
     public static readonly StyledProperty<double> ZAxisMaximumProperty =
         AvaloniaProperty.Register<Plot3DView, double>(nameof(ZAxisMaximum), double.NaN);
 
+    /// <summary>
+    /// 是否锁定三个坐标轴为等长显示（图形显示为正方体），默认 <c>false</c>。
+    /// 开启后各轴只改变显示长度，刻度仍按用户设置 / 数据实际的数值范围排列。
+    /// </summary>
+    public static readonly StyledProperty<bool> IsAspectRatioLockedProperty =
+        AvaloniaProperty.Register<Plot3DView, bool>(nameof(IsAspectRatioLocked));
+
     /// <summary>相机方位角（度）。</summary>
     public static readonly StyledProperty<double> AzimuthProperty =
         AvaloniaProperty.Register<Plot3DView, double>(nameof(Azimuth), DefaultAzimuth);
@@ -426,6 +433,16 @@ public partial class Plot3DView : Control
         set => SetValue(ZAxisMaximumProperty, value);
     }
 
+    /// <summary>
+    /// 是否锁定三个坐标轴为等长显示（图形显示为正方体）。
+    /// 开启后各轴只改变显示长度，不改变刻度数值，适合各轴数量级悬殊的数据。
+    /// </summary>
+    public bool IsAspectRatioLocked
+    {
+        get => GetValue(IsAspectRatioLockedProperty);
+        set => SetValue(IsAspectRatioLockedProperty, value);
+    }
+
     /// <summary>相机方位角（度）。</summary>
     public double Azimuth
     {
@@ -618,6 +635,9 @@ public partial class Plot3DView : Control
             ZAxisMinimum,
             ZAxisMaximum,
             TickCount,
+            ResolveTickDecimals(XAxisTickDecimals),
+            ResolveTickDecimals(YAxisTickDecimals),
+            ResolveTickDecimals(ZAxisTickDecimals),
             XAxisValueFormat,
             YAxisValueFormat,
             ZAxisValueFormat,
@@ -627,7 +647,8 @@ public partial class Plot3DView : Control
             Zoom,
             _panX,
             _panY,
-            Projection == ProjectionMode.Perspective);
+            Projection == ProjectionMode.Perspective,
+            IsAspectRatioLocked);
 
         _sceneSize = size;
         _sceneDirty = false;

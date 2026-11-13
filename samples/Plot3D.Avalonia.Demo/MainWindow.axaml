@@ -40,6 +40,7 @@
           <CheckBox x:Name="TicksCheck" Content="刻度与标签" IsChecked="True" Click="OnToggle" />
           <CheckBox x:Name="AxisTitleCheck" Content="轴标题" IsChecked="True" Click="OnToggle" />
           <CheckBox x:Name="LegendCheck" Content="图例" IsChecked="True" Click="OnToggle" />
+          <CheckBox x:Name="AspectCheck" Content="锁定正方体比例" Click="OnToggle" />
 
           <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
 
@@ -94,9 +95,24 @@
 
           <CheckBox x:Name="MsCheck" Content="时间显示到毫秒" Click="OnMillisecondsChanged" />
 
+          <TextBlock Text="刻度小数位" FontSize="12" Opacity="0.72" />
+          <ComboBox x:Name="DecimalsCombo" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="OnDecimalsChanged">
+            <ComboBoxItem Content="自动" />
+            <ComboBoxItem Content="0（只保留整数）" />
+            <ComboBoxItem Content="1" />
+            <ComboBoxItem Content="2" />
+            <ComboBoxItem Content="3" />
+            <ComboBoxItem Content="4" />
+            <ComboBoxItem Content="6" />
+          </ComboBox>
+
           <Border Height="1" Background="#808080" Opacity="0.25" Margin="0,6" />
 
           <TextBlock Text="图形类型" FontSize="13" FontWeight="SemiBold" />
+          <CheckBox x:Name="ExtremeCheck"
+                    Content="量级悬殊示例"
+                    ToolTip.Tip="X 0.1~0.2、Y 40~41、Z 0~20000"
+                    Click="OnExtremeChanged" />
           <StackPanel Orientation="Horizontal" Spacing="4">
             <RadioButton x:Name="LineMode" Content="折线" IsChecked="True" IsCheckedChanged="OnModeChanged" />
             <RadioButton x:Name="ScatterMode" Content="散点" IsCheckedChanged="OnModeChanged" />

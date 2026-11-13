@@ -7,6 +7,10 @@ namespace Plot3D.Avalonia.Rendering;
 /// 三维到二维的投影器（正交或透视）。由 <see cref="Controls.Plot3DView"/> 在每次布局变化时创建，
 /// 并传递给每个 <see cref="PlotSeries3D"/> 用于绘制。
 /// </summary>
+/// <remarks>
+/// 三个轴可以先经过独立的归一化系数缩放到相同长度（等长轴锁定），
+/// 因此世界坐标与屏幕坐标之间不再只差一个统一的 <c>scale</c>。
+/// </remarks>
 public readonly struct PlotProjection : IEquatable<PlotProjection>
 {
     /// <summary>射线与包围盒求交时允许的浮点误差。</summary>
@@ -16,6 +20,7 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
     private readonly double _upX, _upY, _upZ;
     private readonly double _eyeX, _eyeY, _eyeZ;
     private readonly double _centerX, _centerY, _centerZ;
+    private readonly double _axisScaleX, _axisScaleY, _axisScaleZ;
     private readonly double _scale;
     private readonly double _offsetX;
     private readonly double _offsetY;
@@ -27,6 +32,7 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
         double upX, double upY, double upZ,
         double eyeX, double eyeY, double eyeZ,
         double centerX, double centerY, double centerZ,
+        double axisScaleX, double axisScaleY, double axisScaleZ,
         double scale, double offsetX, double offsetY,
         double eyeDistance, bool perspective)
     {
@@ -42,6 +48,9 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
         _centerX = centerX;
         _centerY = centerY;
         _centerZ = centerZ;
+        _axisScaleX = axisScaleX;
+        _axisScaleY = axisScaleY;
+        _axisScaleZ = axisScaleZ;
         _scale = scale;
         _offsetX = offsetX;
         _offsetY = offsetY;
@@ -65,9 +74,10 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
             return false;
         }
 
-        var dx = x - _centerX;
-        var dy = y - _centerY;
-        var dz = z - _centerZ;
+        // 先按轴归一化（等长轴锁定时将三个轴映射到相同长度），再投影。
+        var dx = (x - _centerX) * _axisScaleX;
+        var dy = (y - _centerY) * _axisScaleY;
+        var dz = (z - _centerZ) * _axisScaleZ;
 
         var vx = dx * _rightX + dy * _rightY + dz * _rightZ;
         var vy = dx * _upX + dy * _upY + dz * _upZ;
@@ -154,20 +164,29 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
         point = default;
         offset = double.PositiveInfinity;
 
-        if (!TryGetViewPlanePoint(screenX, screenY, out var planePoint))
+        // 统一在“归一化空间”中求交：包围盒与射线都先换算到该空间，
+        // 这样等长轴锁定时准线仍落在实际坐标框上。
+        if (!TryGetNormalizedViewPlanePoint(screenX, screenY, out var planePoint))
         {
             return false;
         }
+
+        var boundsMinX = (minX - _centerX) * _axisScaleX;
+        var boundsMinY = (minY - _centerY) * _axisScaleY;
+        var boundsMinZ = (minZ - _centerZ) * _axisScaleZ;
+        var boundsMaxX = (maxX - _centerX) * _axisScaleX;
+        var boundsMaxY = (maxY - _centerY) * _axisScaleY;
+        var boundsMaxZ = (maxZ - _centerZ) * _axisScaleZ;
 
         double originX, originY, originZ;
         double directionX, directionY, directionZ;
 
         if (_perspective)
         {
-            // 透视：射线从相机位置射向视图平面上的对应点。
-            originX = _centerX + _eyeX * _eyeDistance;
-            originY = _centerY + _eyeY * _eyeDistance;
-            originZ = _centerZ + _eyeZ * _eyeDistance;
+            // 透视：射线从相机位置射向视图平面上的对应点（归一化空间以包围盒中心为原点）。
+            originX = _eyeX * _eyeDistance;
+            originY = _eyeY * _eyeDistance;
+            originZ = _eyeZ * _eyeDistance;
             directionX = planePoint.X - originX;
             directionY = planePoint.Y - originY;
             directionZ = planePoint.Z - originZ;
@@ -186,9 +205,9 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
         var tEnter = double.NegativeInfinity;
         var tExit = double.PositiveInfinity;
 
-        if (!ClipSlab(originX, directionX, minX, maxX, ref tEnter, ref tExit) ||
-            !ClipSlab(originY, directionY, minY, maxY, ref tEnter, ref tExit) ||
-            !ClipSlab(originZ, directionZ, minZ, maxZ, ref tEnter, ref tExit) ||
+        if (!ClipSlab(originX, directionX, boundsMinX, boundsMaxX, ref tEnter, ref tExit) ||
+            !ClipSlab(originY, directionY, boundsMinY, boundsMaxY, ref tEnter, ref tExit) ||
+            !ClipSlab(originZ, directionZ, boundsMinZ, boundsMaxZ, ref tEnter, ref tExit) ||
             tEnter > tExit + SlabEpsilon ||
             (_perspective && tExit < -SlabEpsilon))
         {
@@ -203,14 +222,18 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
                 ? tExit
                 : 0;
 
-        point = new Point3D(
-            originX + directionX * t,
-            originY + directionY * t,
-            originZ + directionZ * t);
+        var hitX = originX + directionX * t;
+        var hitY = originY + directionY * t;
+        var hitZ = originZ + directionZ * t;
 
-        var dx = point.X - planePoint.X;
-        var dy = point.Y - planePoint.Y;
-        var dz = point.Z - planePoint.Z;
+        point = new Point3D(
+            _centerX + hitX / _axisScaleX,
+            _centerY + hitY / _axisScaleY,
+            _centerZ + hitZ / _axisScaleZ);
+
+        var dx = hitX - planePoint.X;
+        var dy = hitY - planePoint.Y;
+        var dz = hitZ - planePoint.Z;
         offset = Math.Sqrt(dx * dx + dy * dy + dz * dz);
 
         return point.IsFinite && double.IsFinite(offset);
@@ -230,6 +253,9 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
         _centerX.Equals(other._centerX) &&
         _centerY.Equals(other._centerY) &&
         _centerZ.Equals(other._centerZ) &&
+        _axisScaleX.Equals(other._axisScaleX) &&
+        _axisScaleY.Equals(other._axisScaleY) &&
+        _axisScaleZ.Equals(other._axisScaleZ) &&
         _scale.Equals(other._scale) &&
         _offsetX.Equals(other._offsetX) &&
         _offsetY.Equals(other._offsetY) &&
@@ -255,6 +281,9 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
         hash.Add(_centerX);
         hash.Add(_centerY);
         hash.Add(_centerZ);
+        hash.Add(_axisScaleX);
+        hash.Add(_axisScaleY);
+        hash.Add(_axisScaleZ);
         hash.Add(_scale);
         hash.Add(_offsetX);
         hash.Add(_offsetY);
@@ -271,6 +300,24 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
 
     private bool TryGetViewPlanePoint(double screenX, double screenY, out Point3D point)
     {
+        if (!TryGetNormalizedViewPlanePoint(screenX, screenY, out var normalized))
+        {
+            point = default;
+            return false;
+        }
+
+        // 归一化空间 → 真实坐标。
+        point = new Point3D(
+            _centerX + normalized.X / _axisScaleX,
+            _centerY + normalized.Y / _axisScaleY,
+            _centerZ + normalized.Z / _axisScaleZ);
+
+        return point.IsFinite;
+    }
+
+    /// <summary>把屏幕坐标反算为归一化空间（以包围盒中心为原点）中的视图平面点。</summary>
+    private bool TryGetNormalizedViewPlanePoint(double screenX, double screenY, out Point3D point)
+    {
         if (!double.IsFinite(screenX) || !double.IsFinite(screenY) || !(_scale > 1e-12))
         {
             point = default;
@@ -283,9 +330,9 @@ public readonly struct PlotProjection : IEquatable<PlotProjection>
         // 视图平面（vz = 0）在透视投影下对应 depth = eyeDistance，缩放因子恰为 1，
         // 因此两种投影使用同一个反算公式。
         point = new Point3D(
-            _centerX + _rightX * vx + _upX * vy,
-            _centerY + _rightY * vx + _upY * vy,
-            _centerZ + _rightZ * vx + _upZ * vy);
+            _rightX * vx + _upX * vy,
+            _rightY * vx + _upY * vy,
+            _rightZ * vx + _upZ * vy);
 
         return point.IsFinite;
     }

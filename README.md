@@ -41,7 +41,7 @@
 | --- | --- |
 | 图形 | 三维折线（`LineSeries3D`）、三维散点（`ScatterSeries3D`），可组合绘制，支持最新点高亮 |
 | 相机 | 轨道相机（方位角 / 仰角）、正交投影与透视投影、缩放、平移、双击复位 |
-| 坐标系 | 自动取整的坐标范围、可手动指定范围、自动刻度与标签、轴标题、数值 / 日期 / 时间格式（支持毫秒） |
+| 坐标系 | 自动取整的坐标范围、可手动指定范围（数据超出时自动延伸）、等长轴锁定、自动刻度与标签、可固定刻度小数位、轴标题、数值 / 日期 / 时间格式（支持毫秒） |
 | 点交互 | 悬停高亮 + 自定义提示、十字准线 X/Y/Z 坐标读数、左键点选（事件返回点对象）、右键菜单（保存 PNG / 删除点 / 自定义菜单项） |
 | 外观 | 背景色或完全透明背景、网格开关、坐标框开关、背面面板开关、刻度开关、轴标题开关、刻度与标题的偏移 / 间距 / 字号 |
 | 配色 | 自动调色板 / 固定颜色 / 随机颜色，内置 7 套调色板，支持透明度与线型 |
@@ -77,14 +77,14 @@
 ### 3.2 引用 NuGet 包（发布后）
 
 ```bash
-dotnet add package Plot3D.Avalonia --version 1.1.2
+dotnet add package Plot3D.Avalonia --version 1.2.0
 ```
 
 或手工在 csproj 中添加：
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Plot3D.Avalonia" Version="1.1.2" />
+  <PackageReference Include="Plot3D.Avalonia" Version="1.2.0" />
 </ItemGroup>
 ```
 
@@ -695,13 +695,17 @@ plot.ZAxisMaximum = 2;
 plot.XAxisMinimum = double.NaN;
 ```
 
+> 设定值只作为“期望范围”：如果数据超出 `XAxisMinimum` / `XAxisMaximum` 等边界，该端会自动延伸并重新取整，
+> 图形不会跑到坐标框外；数据为空时仍严格使用设定值。
+
 ### 10.3 刻度数量
 
 ```csharp
 plot.TickCount = 6;   // 每个轴期望的刻度数量（含两端），有效范围 2..20
 ```
 
-刻度文本会根据步长自动选择小数位，极大 / 极小数值自动切换为科学计数法。
+刻度文本会根据步长自动选择小数位，极大 / 极小数值自动切换为科学计数法；
+需要固定小数位时使用 `XAxisTickDecimals` 等属性（见 [10.6](#106-刻度小数位)）。
 
 ### 10.4 显示开关
 
@@ -727,6 +731,34 @@ plot.PlotPadding = new Thickness(56, 40, 56, 40); // 左、上、右、下
 ```
 
 当字号较大或标签很长时，适当增大留白。
+
+### 10.6 刻度小数位
+
+```csharp
+plot.XAxisTickDecimals = 3;    // 0.100 / 0.120 / ...
+plot.YAxisTickDecimals = 1;    // 40.0 / 40.2 / ...
+plot.ZAxisTickDecimals = 0;    // 只保留整数：0 / 5000 / ...
+plot.XAxisTickDecimals = double.NaN;  // 恢复按步长自动（默认）
+```
+
+- 取值 0..8，`0` 表示只保留整数，`NaN` 表示按步长自动选择；
+- 只影响标签文本，不会改变刻度数值本身；
+- 仅对数值轴生效，日期 / 时间轴仍使用对应的时间格式。
+
+### 10.7 等长轴锁定（正方体比例）
+
+各轴数量级相差悬殊时（例如 X 为 `0.1..0.2`、Y 为 `40..41`、Z 为 `0..20000`），按真实比例绘制会让坐标框退化成一条线。
+开启 `IsAspectRatioLocked` 后，三个轴会被分别缩放到相同的显示长度，坐标框显示为正方体：
+
+```csharp
+plot.IsAspectRatioLocked = true;
+```
+
+- 只改变各轴的显示长度，刻度数值与标签仍按各轴真实范围排列；
+- 与手动指定的最小 / 最大值、日期时间轴、正交 / 透视投影均兼容；
+- 默认 `false`，保持各轴真实比例。
+
+![等长轴锁定](https://cdn.jsdelivr.net/gh/daipeng0809/Plot3D.Avalonia@master/docs/screenshot-aspect-lock.png)
 
 ---
 
@@ -816,6 +848,7 @@ series.Title = "曲线 A";
 | `XAxisMinimum` / `XAxisMaximum` | `double` | `NaN` | X 范围，`NaN` 表示自动 |
 | `YAxisMinimum` / `YAxisMaximum` | `double` | `NaN` | Y 范围 |
 | `ZAxisMinimum` / `ZAxisMaximum` | `double` | `NaN` | Z 范围 |
+| `IsAspectRatioLocked` | `bool` | `false` | 三轴等长显示（正方体比例），刻度仍按真实数值排列 |
 | `TickCount` | `int` | `6` | 期望刻度数量（2..20） |
 | `PlotPadding` | `Thickness` | `56,40,56,40` | 绘图区留白 |
 
@@ -864,6 +897,7 @@ series.Title = "曲线 A";
 | --- | --- | --- | --- |
 | `XAxisValueFormat` / `YAxisValueFormat` / `ZAxisValueFormat` | `AxisValueFormat` | `Numeric` | 数值 / 日期 / 时间 / 日期 + 时间 |
 | `AxisTimeMilliseconds` | `bool` | `false` | 时间格式是否输出毫秒 |
+| `XAxisTickDecimals` / `YAxisTickDecimals` / `ZAxisTickDecimals` | `double` | `NaN` | 刻度标签固定小数位，`0` = 只保留整数，`NaN` = 自动 |
 | `TickLength` | `double` | `4` | 刻度线长度（像素） |
 | `TickLabelGap` | `double` | `3` | 刻度文本距刻度线的距离（像素） |
 | `TickLabelOffset` | `Vector` | `0,0` | 刻度文本整体偏移 |
@@ -1010,8 +1044,8 @@ dotnet pack src/Plot3D.Avalonia/Plot3D.Avalonia.csproj -c Release -o ./artifacts
 
 ```
 artifacts/
-├── Plot3D.Avalonia.1.1.2.nupkg    —— 主包
-└── Plot3D.Avalonia.1.1.2.snupkg   —— 符号包（供 nuget.org 符号服务器使用，发布时随主包一并推送）
+├── Plot3D.Avalonia.1.2.0.nupkg    —— 主包
+└── Plot3D.Avalonia.1.2.0.snupkg   —— 符号包（供 nuget.org 符号服务器使用，发布时随主包一并推送）
 ```
 
 `SymbolPackageFormat` 为 `snupkg`，因此只产出 `.snupkg`，不会再额外生成 `.symbols.nupkg`。
@@ -1030,7 +1064,7 @@ artifacts/
 
 ```bash
 dotnet nuget add source ./artifacts --name Plot3DLocal
-dotnet add package Plot3D.Avalonia --version 1.1.2 --source Plot3DLocal
+dotnet add package Plot3D.Avalonia --version 1.2.0 --source Plot3DLocal
 ```
 
 ### 17.3 发布到 nuget.org
@@ -1045,7 +1079,7 @@ dotnet add package Plot3D.Avalonia --version 1.1.2 --source Plot3DLocal
    - Repository Owner / Repository：GitHub 用户名 / 仓库名
    - Workflow File：`publish.yml`（**只填文件名**，不含 `.github/workflows/` 路径）
 2. 触发发布，二选一：
-   - 推送标签：`git tag v1.1.2` → `git push origin v1.1.2`，版本号自动取自标签
+   - 推送标签：`git tag v1.2.0` → `git push origin v1.2.0`，版本号自动取自标签
    - 在 Actions 页面手动运行 `Publish to NuGet`，可通过输入框临时覆盖版本号
 
 流水线内部用 `NuGet/login@v1` 把 GitHub OIDC token 换成有效期 **1 小时**的临时 API Key，仓库和 Secrets 里都不保存长期密钥。
@@ -1055,7 +1089,7 @@ dotnet add package Plot3D.Avalonia --version 1.1.2 --source Plot3DLocal
 ```bash
 # 1. 在 https://www.nuget.org 的 API Keys 页面创建长期密钥
 # 2. 推送
-dotnet nuget push ./artifacts/Plot3D.Avalonia.1.1.2.nupkg \
+dotnet nuget push ./artifacts/Plot3D.Avalonia.1.2.0.nupkg \
   --api-key <YOUR_API_KEY> \
   --source https://api.nuget.org/v3/index.json
 ```
@@ -1067,7 +1101,7 @@ dotnet nuget push ./artifacts/Plot3D.Avalonia.1.1.2.nupkg \
 <PackageProjectUrl>项目主页</PackageProjectUrl>
 <RepositoryUrl>Git 仓库地址</RepositoryUrl>
 <PackageLicenseExpression>MIT</PackageLicenseExpression>
-<Version>1.1.2</Version>
+<Version>1.2.0</Version>
 ```
 
 > 版本号一经发布不可删除或覆盖，只能 unlist。需要修复时必须升版本号重新发布。
@@ -1327,6 +1361,14 @@ bitmap.Save("chart.png");
 ---
 
 ## 20. 版本与许可
+
+### 1.2.0
+
+- 新增等长轴锁定（`IsAspectRatioLocked`）：三轴数量级悬殊时坐标框仍显示为正方体，刻度数值保持各轴真实范围。
+- 新增刻度小数位设置（`XAxisTickDecimals` / `YAxisTickDecimals` / `ZAxisTickDecimals`），支持固定 0..8 位小数或只保留整数。
+- 手动设置的最小 / 最大值小于数据范围时，该轴自动延伸并重新取整，图形不再超出坐标框。
+- 十字准线与屏幕坐标反算适配等长轴锁定（在归一化空间中做射线求交）。
+- 示例程序新增“锁定正方体比例”与“刻度小数位”选项。
 
 ### 1.1.2
 
